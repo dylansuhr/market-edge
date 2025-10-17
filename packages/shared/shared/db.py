@@ -471,38 +471,50 @@ def update_paper_bankroll(balance: float, pnl: float, trade_result: str):
 # RL MODEL OPERATIONS
 # ============================================================================
 
-def save_q_table(stock_id: int, q_table: Dict):
+def save_q_table(stock_id: int, agent_data: Dict):
     """
-    Save Q-table to database (for Q-Learning persistence).
+    Save Q-Learning agent state to database (for persistence).
 
     Args:
         stock_id: Stock identifier
-        q_table: Dictionary mapping (state, action) -> Q-value
+        agent_data: Full agent state from QLearningAgent.save() method
+                   (includes q_table, hyperparameters, stats)
     """
     import json
 
+    # Extract Q-table and hyperparameters from agent data
+    q_table_data = agent_data.get('q_table', {})
+    hyperparameters = {
+        'learning_rate': agent_data.get('learning_rate', 0.1),
+        'discount_factor': agent_data.get('discount_factor', 0.95),
+        'exploration_rate': agent_data.get('exploration_rate', 1.0),
+        'total_episodes': agent_data.get('total_episodes', 0),
+        'total_rewards': agent_data.get('total_rewards', 0.0)
+    }
+
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO rl_model_states (stock_id, model_type, q_table, updated_at)
-            VALUES (%s, 'Q_LEARNING', %s, CURRENT_TIMESTAMP)
+            INSERT INTO rl_model_states (stock_id, model_type, q_table, hyperparameters, updated_at)
+            VALUES (%s, 'Q_LEARNING', %s, %s, CURRENT_TIMESTAMP)
             ON CONFLICT (stock_id, model_type) DO UPDATE
             SET q_table = EXCLUDED.q_table,
+                hyperparameters = EXCLUDED.hyperparameters,
                 updated_at = CURRENT_TIMESTAMP
-        """, (stock_id, json.dumps(q_table)))
+        """, (stock_id, json.dumps(q_table_data), json.dumps(hyperparameters)))
 
 
 def load_q_table(stock_id: int) -> Optional[Dict]:
     """
-    Load Q-table from database.
+    Load Q-Learning agent state from database.
 
     Returns:
-        Q-table dictionary or None if not found
+        Full agent state dictionary (ready for QLearningAgent.load()) or None if not found
     """
     import json
 
     with get_cursor(commit=False) as cur:
         cur.execute("""
-            SELECT q_table
+            SELECT q_table, hyperparameters
             FROM rl_model_states
             WHERE stock_id = %s AND model_type = 'Q_LEARNING'
             ORDER BY updated_at DESC
@@ -510,7 +522,21 @@ def load_q_table(stock_id: int) -> Optional[Dict]:
         """, (stock_id,))
 
         result = cur.fetchone()
-        return json.loads(result['q_table']) if result else None
+        if not result:
+            return None
+
+        # Reconstruct full agent state from database fields
+        q_table_data = json.loads(result['q_table']) if isinstance(result['q_table'], str) else result['q_table']
+        hyperparams = json.loads(result['hyperparameters']) if isinstance(result['hyperparameters'], str) else result['hyperparameters']
+
+        return {
+            'q_table': q_table_data,
+            'learning_rate': hyperparams.get('learning_rate', 0.1),
+            'discount_factor': hyperparams.get('discount_factor', 0.95),
+            'exploration_rate': hyperparams.get('exploration_rate', 1.0),
+            'total_episodes': hyperparams.get('total_episodes', 0),
+            'total_rewards': hyperparams.get('total_rewards', 0.0)
+        }
 
 
 # Example usage

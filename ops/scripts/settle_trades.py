@@ -42,6 +42,8 @@ def get_closing_price(provider: PolygonProvider, symbol: str) -> float:
     """
     Get closing price for a stock.
 
+    Uses previous day's close (free tier compatible endpoint).
+
     Args:
         provider: Polygon.io provider
         symbol: Stock ticker
@@ -53,8 +55,9 @@ def get_closing_price(provider: PolygonProvider, symbol: str) -> float:
         Exception: If price cannot be fetched
     """
     try:
-        quote = provider.get_last_quote(symbol)
-        return quote['price']
+        # Use previous close endpoint (free tier compatible)
+        prev_close = provider.get_previous_close(symbol)
+        return prev_close['close']
     except Exception as e:
         raise Exception(f"Failed to get closing price for {symbol}: {str(e)}")
 
