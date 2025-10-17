@@ -163,9 +163,10 @@ class PolygonProvider:
                 ...
             ]
         """
-        # Default date range: last 2 days (ensures we get today's data)
+        # Default date range: last 14 days (ensures we get enough bars for SMA(50))
+        # Need 50+ 5-minute bars, which is ~4-5 trading days of data
         if not from_date:
-            from_date = (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d')
+            from_date = (datetime.now() - timedelta(days=14)).strftime('%Y-%m-%d')
         if not to_date:
             to_date = datetime.now().strftime('%Y-%m-%d')
 

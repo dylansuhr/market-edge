@@ -28,7 +28,8 @@ from shared.shared.db import (
     upsert_stock,
     get_stock_id,
     bulk_insert_price_snapshots,
-    upsert_technical_indicator
+    upsert_technical_indicator,
+    get_recent_prices
 )
 from shared.shared.indicators import calculate_rsi, calculate_sma, calculate_vwap
 
@@ -130,9 +131,14 @@ def fetch_and_store_stock_data(
 
     # 4. Calculate and store technical indicators (NO additional API calls!)
     # We calculate RSI, SMA, VWAP locally using the price data we already have
+    # BUT we need to check the DATABASE for total bars, not just the API response
     try:
-        # Extract close prices for calculations (oldest first for RSI/SMA)
-        close_prices = [p['close'] for p in reversed(prices)]
+        # Get ALL recent prices from database (for SMA calculation)
+        all_prices = get_recent_prices(stock_id, limit=100)
+        # Convert Decimal to float
+        close_prices = [float(p['close']) for p in reversed(all_prices)]
+
+        print(f"  Database has {len(all_prices)} total bars")
 
         # RSI (14-period) - needs at least 15 prices
         if len(close_prices) >= 15:
@@ -163,8 +169,8 @@ def fetch_and_store_stock_data(
             print(f"  ⚠ Need 50+ prices for SMA(50) (have {len(close_prices)})")
 
         # VWAP - needs at least 1 price with volume
-        # Polygon actually provides VWAP in the response, but we can also calculate it
-        vwap_bars = [{'close': p['close'], 'volume': p['volume']} for p in prices]
+        # Use API response prices (they're already floats)
+        vwap_bars = [{'close': float(p['close']), 'volume': int(p['volume'])} for p in prices]
         vwap = calculate_vwap(vwap_bars)
         latest_timestamp = prices[0]['timestamp']
         upsert_technical_indicator(
