@@ -1,0 +1,21 @@
+# Market-Edge Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Database
+psycopg2-binary==2.9.9   # PostgreSQL adapter
+
+# HTTP requests
+requests==2.31.0          # API calls (Polygon.io)
+
+# Environment variables
+python-dotenv>=1.0.0      # Load .env files
+
+# Numerical computing
+numpy==1.26.2             # Technical indicator calculations
+
+# Data manipulation
+pandas==2.1.4             # Data analysis (optional, for future backtesting)
+
+# Testing (optional)
+pytest==7.4.3             # Unit testing
+pytest-cov==4.1.0         # Code coverage
