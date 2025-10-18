@@ -130,6 +130,13 @@ We've organized documentation into a clear, navigable structure with **3 core do
 - Migration notes and rationale
 - Rollback instructions
 
+#### [`infra/migrations/0004_remove_alpha_vantage_artifacts.sql`](./infra/migrations/0004_remove_alpha_vantage_artifacts.sql)
+**Purpose:** Remove deprecated Alpha Vantage logging table
+**Contents:**
+- Drop `api_usage_log`
+- Migration rationale (Polygon.io is sole provider)
+- Notes for applying the cleanup
+
 ---
 
 ### `ops/scripts/` Directory (Operational Scripts)

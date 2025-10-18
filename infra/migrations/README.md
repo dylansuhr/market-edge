@@ -1,6 +1,6 @@
-# Database Migration: paper_bankroll Table → View
+# Database Migrations
 
-## Summary
+## 0002 – paper_bankroll Table → View
 
 Converted `paper_bankroll` from a **table** (stored state) to a **view** (calculated state) to eliminate data inconsistencies and enforce single source of truth architecture.
 
@@ -187,3 +187,31 @@ Instead:
 **Date:** October 18, 2025
 **Author:** Claude Code
 **Status:** Ready for deployment
+
+---
+
+## 0004 – Remove Alpha Vantage Artifacts
+
+### Summary
+
+Dropped the unused `api_usage_log` table that tracked Alpha Vantage API consumption. Polygon.io is the only supported market data provider, so the logging table was dead weight.
+
+### Changes
+
+- **File:** `infra/migrations/0004_remove_alpha_vantage_artifacts.sql`
+- **Action:** `DROP TABLE IF EXISTS api_usage_log`
+- **Rationale:** Simplifies schema and removes references to deprecated integrations.
+
+### Applying the Migration
+
+Run the new migration after `0003`:
+
+```bash
+psql $DATABASE_URL -f infra/migrations/0004_remove_alpha_vantage_artifacts.sql
+```
+
+No data transformation is required.
+
+### Rollback
+
+If you ever need to restore the table (unlikely), re-create it using the definition originally bundled in `0001_init.sql`.
