@@ -20,6 +20,7 @@ export default function RootLayout({
             <a href="/trades" className="hover:text-blue-400">Trades</a>
             <a href="/performance" className="hover:text-blue-400">Performance</a>
             <a href="/agent" className="hover:text-blue-400">Agent Stats</a>
+            <a href="/ai-log" className="hover:text-blue-400">AI Log</a>
           </div>
         </nav>
         <main className="container mx-auto p-8">

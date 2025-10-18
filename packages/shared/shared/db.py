@@ -304,6 +304,9 @@ def insert_paper_trade(
     """
     Insert a paper trade (mock trade for validation).
 
+    Balance is automatically calculated from all trades via the paper_bankroll view.
+    No manual balance updates needed.
+
     Args:
         stock_id: Stock identifier
         action: 'BUY' or 'SELL'
@@ -316,6 +319,7 @@ def insert_paper_trade(
         trade_id (primary key)
     """
     with get_cursor() as cur:
+        # Insert trade
         cur.execute("""
             INSERT INTO paper_trades (
                 stock_id, action, quantity, price, strategy, reasoning, executed_at
@@ -434,37 +438,9 @@ def get_paper_bankroll() -> Dict:
         }
 
 
-def update_paper_bankroll(balance: float, pnl: float, trade_result: str):
-    """
-    Update paper bankroll after trade settlement.
-
-    Args:
-        balance: New balance
-        pnl: Profit/loss from last trade
-        trade_result: 'WIN' or 'LOSS'
-    """
-    with get_cursor() as cur:
-        # Get current stats
-        cur.execute("SELECT * FROM paper_bankroll ORDER BY updated_at DESC LIMIT 1")
-        current = cur.fetchone()
-
-        if not current:
-            # Initialize bankroll
-            total_trades = 1
-            winning_trades = 1 if trade_result == 'WIN' else 0
-            total_pnl = pnl
-        else:
-            total_trades = current['total_trades'] + 1
-            winning_trades = current['winning_trades'] + (1 if trade_result == 'WIN' else 0)
-            total_pnl = float(current['total_pnl']) + pnl
-
-        roi = (balance - 10000.0) / 10000.0  # Starting bankroll is $10,000
-
-        # Insert new bankroll record
-        cur.execute("""
-            INSERT INTO paper_bankroll (balance, total_trades, winning_trades, total_pnl, roi)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (balance, total_trades, winning_trades, total_pnl, roi))
+# NOTE: update_paper_bankroll() and adjust_paper_bankroll_balance() removed
+# Balance is now calculated dynamically from paper_trades via the paper_bankroll view
+# No manual updates needed - single source of truth architecture
 
 
 # ============================================================================
@@ -537,6 +513,110 @@ def load_q_table(stock_id: int) -> Optional[Dict]:
             'total_episodes': hyperparams.get('total_episodes', 0),
             'total_rewards': hyperparams.get('total_rewards', 0.0)
         }
+
+
+# ============================================================================
+# AI DECISION LOGGING OPERATIONS
+# ============================================================================
+
+def insert_decision_log(
+    stock_id: int,
+    state: Dict,
+    action: str,
+    was_executed: bool,
+    was_random: bool,
+    reasoning: str,
+    q_values: Optional[Dict] = None
+) -> int:
+    """
+    Insert AI trading decision into log (for full transparency).
+
+    Logs ALL decisions: BUY, SELL, HOLD (executed or not).
+
+    Args:
+        stock_id: Stock identifier
+        state: Trading state as dictionary
+        action: 'BUY', 'SELL', or 'HOLD'
+        was_executed: True if trade was actually executed
+        was_random: True if action was random (exploration)
+        reasoning: Decision explanation
+        q_values: Q-values for all actions (optional)
+
+    Returns:
+        decision_id (primary key)
+    """
+    import json
+
+    with get_cursor() as cur:
+        cur.execute("""
+            INSERT INTO trade_decisions_log (
+                stock_id, state, action, was_executed, was_random, reasoning, q_values, timestamp
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            RETURNING decision_id
+        """, (
+            stock_id,
+            json.dumps(state),
+            action,
+            was_executed,
+            was_random,
+            reasoning,
+            json.dumps(q_values) if q_values else None
+        ))
+
+        result = cur.fetchone()
+        return result['decision_id']
+
+
+def get_recent_decisions(stock_id: Optional[int] = None, limit: int = 50) -> List[Dict]:
+    """
+    Get recent AI trading decisions.
+
+    Args:
+        stock_id: Filter by stock (None = all stocks)
+        limit: Number of decisions to return
+
+    Returns:
+        List of decision dictionaries
+    """
+    with get_cursor(commit=False) as cur:
+        if stock_id:
+            cur.execute("""
+                SELECT
+                    tdl.decision_id,
+                    s.symbol,
+                    tdl.timestamp,
+                    tdl.state,
+                    tdl.action,
+                    tdl.was_executed,
+                    tdl.was_random,
+                    tdl.reasoning,
+                    tdl.q_values
+                FROM trade_decisions_log tdl
+                JOIN stocks s ON s.stock_id = tdl.stock_id
+                WHERE tdl.stock_id = %s
+                ORDER BY tdl.timestamp DESC
+                LIMIT %s
+            """, (stock_id, limit))
+        else:
+            cur.execute("""
+                SELECT
+                    tdl.decision_id,
+                    s.symbol,
+                    tdl.timestamp,
+                    tdl.state,
+                    tdl.action,
+                    tdl.was_executed,
+                    tdl.was_random,
+                    tdl.reasoning,
+                    tdl.q_values
+                FROM trade_decisions_log tdl
+                JOIN stocks s ON s.stock_id = tdl.stock_id
+                ORDER BY tdl.timestamp DESC
+                LIMIT %s
+            """, (limit,))
+
+        return cur.fetchall()
 
 
 # Example usage

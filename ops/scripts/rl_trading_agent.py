@@ -39,7 +39,8 @@ from shared.shared.db import (
     get_active_positions,
     get_paper_bankroll,
     save_q_table,
-    load_q_table
+    load_q_table,
+    insert_decision_log
 )
 
 
@@ -144,7 +145,8 @@ def execute_action(
     stock_id: int,
     action: str,
     market_data: Dict,
-    was_random: bool
+    was_random: bool,
+    state: TradingState
 ) -> Dict:
     """
     Execute trading action (paper trade).
@@ -156,6 +158,7 @@ def execute_action(
         action: 'BUY', 'SELL', or 'HOLD'
         market_data: Current market data
         was_random: Whether action was random (exploration)
+        state: Trading state (for logging)
 
     Returns:
         Dictionary with execution results
@@ -180,6 +183,9 @@ def execute_action(
     if was_random:
         reasoning_parts.append("(EXPLORATION)")
     reasoning = " | ".join(reasoning_parts)
+
+    # Get Q-values for logging
+    q_values = agent.get_q_values(state)
 
     # Execute action
     if action == 'BUY':
@@ -238,6 +244,27 @@ def execute_action(
         result['reasoning'] = f"HOLD - {reasoning}"
         print(f"    ⚪ HOLD (no action)")
 
+    # Log ALL decisions to database for transparency
+    try:
+        state_dict = {
+            'rsi': market_data['rsi'],
+            'price': price,
+            'sma': market_data['sma'],
+            'vwap': market_data['vwap'],
+            'position_qty': position_qty
+        }
+        insert_decision_log(
+            stock_id=stock_id,
+            state=state_dict,
+            action=action,
+            was_executed=result['executed'],
+            was_random=was_random,
+            reasoning=result['reasoning'],
+            q_values=q_values
+        )
+    except Exception as e:
+        print(f"    ⚠️ Failed to log decision: {str(e)}")
+
     return result
 
 
@@ -276,7 +303,7 @@ def trade_single_stock(symbol: str, force_exploit: bool = False) -> Dict:
         print(f"  Decision: {action} (random={was_random})")
 
         # Execute action
-        result = execute_action(agent, symbol, stock_id, action, market_data, was_random)
+        result = execute_action(agent, symbol, stock_id, action, market_data, was_random, state)
 
         # Save updated Q-table
         save_q_table(stock_id, agent.save())
