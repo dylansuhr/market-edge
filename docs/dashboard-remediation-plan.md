@@ -33,9 +33,9 @@
 ## Phase 3 – Automation Visibility & Pipeline Status (Sprint 3)
 
 ### Tasks
-- [ ] Implement GitHub Actions proxy endpoint (`apps/dashboard/app/api/automation/route.ts`)
-- [ ] Add automation timeline page (`apps/dashboard/app/automation/page.tsx`)
-- [ ] Surface pipeline status card on overview (last ETL/trade/settle run)
+- [x] Implement GitHub Actions proxy endpoint (`apps/dashboard/app/api/automation/route.ts`)
+- [x] Add automation timeline page (`apps/dashboard/app/automation/page.tsx`)
+- [x] Surface pipeline status card on overview (last ETL/trade/settle run)
 
 ### Success Criteria
 - Automation page shows last runs grouped by workflow with status badges

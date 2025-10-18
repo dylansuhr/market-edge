@@ -7,6 +7,84 @@
 import Link from 'next/link'
 import { query } from '@/lib/db'
 
+const WORKFLOW_LABELS: Record<string, string> = {
+  'market-data-etl.yml': 'Market Data ETL',
+  'trading-agent.yml': 'Trading Agent',
+  'trade-settlement.yml': 'Trade Settlement'
+}
+
+type PipelineRun = {
+  workflow_file: string
+  label: string
+  latest: string | null
+  statusLabel: string
+  url: string | null
+}
+
+async function fetchPipelineStatus(): Promise<PipelineRun[]> {
+  try {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+
+    const res = await fetch(`${baseUrl}/api/automation?workflow=all&limit=3`, {
+      cache: 'no-store'
+    })
+
+    if (!res.ok) {
+      throw new Error(`Automation API returned ${res.status}`)
+    }
+
+    const data = await res.json()
+    const runs = Array.isArray(data.runs) ? data.runs : []
+
+    const grouped: Record<string, { latest: string | null; status: string; conclusion: string | null; url: string | null }> = {}
+
+    runs.forEach((run: any) => {
+      const file = run.workflow_file
+      if (!grouped[file]) {
+        grouped[file] = {
+          latest: run.updated_at || run.created_at || null,
+          status: run.status || 'unknown',
+          conclusion: run.conclusion || null,
+          url: run.html_url || null
+        }
+      }
+    })
+
+    return Object.keys(WORKFLOW_LABELS).map(file => {
+      const info = grouped[file]
+      let statusLabel = 'No runs yet'
+      if (info) {
+        if (info.status === 'in_progress') {
+          statusLabel = 'In Progress'
+        } else if (info.conclusion) {
+          statusLabel = info.conclusion.toUpperCase()
+        } else {
+          statusLabel = info.status || 'UNKNOWN'
+        }
+      }
+
+      return {
+        workflow_file: file,
+        label: WORKFLOW_LABELS[file] || file,
+        latest: info?.latest || null,
+        statusLabel,
+        url: info?.url || null
+      }
+    })
+  } catch (error) {
+    console.error('Failed to load pipeline status:', error)
+    return Object.keys(WORKFLOW_LABELS).map(file => ({
+      workflow_file: file,
+      label: WORKFLOW_LABELS[file] || file,
+      latest: null,
+      statusLabel: 'Unavailable',
+      url: null
+    }))
+  }
+}
+
 export const dynamic = 'force-dynamic' // Disable caching for real-time data
 
 async function getOverviewData() {
@@ -87,6 +165,7 @@ export default async function OverviewPage() {
     winning_trades: 0,
     win_rate: 0
   }
+  const automation = await fetchPipelineStatus()
 
   return (
     <div>
@@ -188,6 +267,34 @@ export default async function OverviewPage() {
         ) : (
           <p className="text-gray-500">No active positions</p>
         )}
+      </div>
+
+      {/* Pipeline Status */}
+      <div className="bg-white shadow rounded-lg p-6">
+        <h2 className="text-xl font-bold mb-4">Today&apos;s Pipeline</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {automation.map(run => (
+            <div key={run.workflow_file} className="border rounded-lg p-4">
+              <div className="text-sm text-gray-500 uppercase mb-1">{run.label}</div>
+              <div className="text-sm text-gray-700">
+                {run.latest ? new Date(run.latest).toLocaleString() : 'No runs yet'}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                Status: <span className="font-semibold">{run.statusLabel}</span>
+              </div>
+              {run.url && (
+                <a
+                  href={run.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-blue-600 hover:underline mt-2 inline-block"
+                >
+                  View on GitHub
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Recent Trades */}
