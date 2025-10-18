@@ -34,7 +34,15 @@ export default function AILogPage() {
     try {
       const res = await fetch('/api/ai-log?limit=500')  // Increased to show 2 days of activity
       const data = await res.json()
-      setDecisions(data.decisions || [])
+
+      // Ensure each decision has a properly parsed state object
+      const validDecisions = (data.decisions || []).map((d: any) => ({
+        ...d,
+        state: typeof d.state === 'object' ? d.state : JSON.parse(d.state || '{}'),
+        q_values: typeof d.q_values === 'object' ? d.q_values : (d.q_values ? JSON.parse(d.q_values) : null)
+      }))
+
+      setDecisions(validDecisions)
     } catch (error) {
       console.error('Failed to fetch AI logs:', error)
     } finally {
@@ -151,9 +159,9 @@ export default function AILogPage() {
                       </td>
                       <td className="px-4 py-3 text-xs">
                         <div className="space-y-1">
-                          <div>RSI: <span className="font-semibold">{decision.state.rsi.toFixed(1)}</span></div>
-                          <div>Price: <span className="font-semibold">${decision.state.price.toFixed(2)}</span></div>
-                          <div>Position: <span className="font-semibold">{decision.state.position_qty}</span></div>
+                          <div>RSI: <span className="font-semibold">{decision.state?.rsi?.toFixed(1) ?? 'N/A'}</span></div>
+                          <div>Price: <span className="font-semibold">${decision.state?.price?.toFixed(2) ?? 'N/A'}</span></div>
+                          <div>Position: <span className="font-semibold">{decision.state?.position_qty ?? 0}</span></div>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700 max-w-md">
