@@ -204,14 +204,9 @@ def main():
     winning_trades = sum(1 for r in results if r['success'] and r['pnl'] > 0)
     total_settled = sum(1 for r in results if r['success'])
 
-    # Update bankroll
-    new_balance = bankroll_before['balance'] + total_pnl
-
-    if total_settled > 0:
-        for result in results:
-            if result['success']:
-                trade_result = 'WIN' if result['pnl'] > 0 else 'LOSS'
-                update_paper_bankroll(new_balance, result['pnl'], trade_result)
+    # Bankroll is automatically updated via paper_bankroll VIEW (no manual update needed)
+    # Balance calculated from: starting_cash - BUY_total + SELL_total
+    new_balance = get_paper_bankroll()['balance']
 
     # Summary
     print("\n" + "=" * 60)

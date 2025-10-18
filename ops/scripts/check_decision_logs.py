@@ -5,6 +5,10 @@ Quick script to check decision log counts and recent entries.
 import sys
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Add packages/shared to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'packages' / 'shared'))
