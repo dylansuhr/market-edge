@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react'
 
+const PAGE_SIZE = 50
+type StatusFilter = 'all' | 'executed' | 'skipped' | 'exploration'
+
 interface Decision {
   decision_id: number
   symbol: string
@@ -24,44 +27,91 @@ interface Decision {
 export default function AILogPage() {
   const [decisions, setDecisions] = useState<Decision[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'executed' | 'exploration'>('all')
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [nextCursor, setNextCursor] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchDecisions()
-  }, [])
+    resetAndFetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter])
 
-  async function fetchDecisions() {
+  async function requestDecisions(cursor?: number) {
+    const params = new URLSearchParams({
+      limit: PAGE_SIZE.toString(),
+      status: statusFilter
+    })
+    if (cursor) {
+      params.set('cursor', cursor.toString())
+    }
+
+    const res = await fetch(`/api/ai-log?${params.toString()}`, { cache: 'no-store' })
+    if (!res.ok) {
+      throw new Error(`Failed to fetch AI decisions (${res.status})`)
+    }
+
+    const data = await res.json()
+    const normalized: Decision[] = (data.decisions || []).map((d: any) => ({
+      ...d,
+      state: typeof d.state === 'object' ? d.state : JSON.parse(d.state || '{}'),
+      q_values:
+        typeof d.q_values === 'object'
+          ? d.q_values
+          : d.q_values
+          ? JSON.parse(d.q_values)
+          : null
+    }))
+
+    return {
+      decisions: normalized,
+      nextCursor: typeof data.nextCursor === 'number' ? data.nextCursor : null
+    }
+  }
+
+  async function resetAndFetch() {
+    setLoading(true)
+    setError(null)
+
     try {
-      const res = await fetch('/api/ai-log?limit=500')  // Increased to show 2 days of activity
-      const data = await res.json()
-
-      // Ensure each decision has a properly parsed state object
-      const validDecisions = (data.decisions || []).map((d: any) => ({
-        ...d,
-        state: typeof d.state === 'object' ? d.state : JSON.parse(d.state || '{}'),
-        q_values: typeof d.q_values === 'object' ? d.q_values : (d.q_values ? JSON.parse(d.q_values) : null)
-      }))
-
-      setDecisions(validDecisions)
-    } catch (error) {
-      console.error('Failed to fetch AI logs:', error)
+      const { decisions: newDecisions, nextCursor } = await requestDecisions()
+      setDecisions(newDecisions)
+      setNextCursor(nextCursor)
+    } catch (err) {
+      console.error('Failed to fetch AI logs:', err)
+      setError('Failed to load AI decisions. Please try again.')
+      setDecisions([])
+      setNextCursor(null)
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredDecisions = decisions.filter(d => {
-    if (filter === 'executed') return d.was_executed
-    if (filter === 'exploration') return d.was_random
-    return true
-  })
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return
 
-  function getActionColor(action: string, wasExecuted: boolean) {
-    if (!wasExecuted) return 'text-gray-400'
-    if (action === 'BUY') return 'text-green-600 font-bold'
-    if (action === 'SELL') return 'text-red-600 font-bold'
-    return 'text-gray-600'
+    setLoadingMore(true)
+    setError(null)
+
+    try {
+      const { decisions: newDecisions, nextCursor: next } = await requestDecisions(nextCursor)
+      setDecisions(prev => [...prev, ...newDecisions])
+      setNextCursor(next)
+    } catch (err) {
+      console.error('Failed to fetch additional AI logs:', err)
+      setError('Failed to load more decisions.')
+    } finally {
+      setLoadingMore(false)
+    }
   }
+
+  const totalDecisions = decisions.length
+  const executedCount = decisions.filter(d => d.was_executed).length
+  const skippedCount = decisions.filter(d => !d.was_executed).length
+  const explorationCount = decisions.filter(d => d.was_random).length
+  const holdCount = decisions.filter(d => d.action === 'HOLD').length
+  const buyCount = decisions.filter(d => d.action === 'BUY').length
+  const sellCount = decisions.filter(d => d.action === 'SELL').length
 
   function getActionBadge(decision: Decision) {
     const baseClasses = 'px-2 py-1 rounded text-xs font-medium'
@@ -92,10 +142,11 @@ export default function AILogPage() {
           </div>
 
           <button
-            onClick={fetchDecisions}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            onClick={resetAndFetch}
+            disabled={loading}
+            className={`px-4 py-2 bg-blue-600 text-white rounded ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'}`}
           >
-            Refresh
+            {loading ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
 
@@ -103,88 +154,109 @@ export default function AILogPage() {
         <div className="bg-white rounded-lg shadow p-4 mb-6">
           <div className="flex gap-2">
             <button
-              onClick={() => setFilter('all')}
-              className={`px-4 py-2 rounded ${filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+              onClick={() => setStatusFilter('all')}
+              className={`px-4 py-2 rounded ${statusFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
             >
-              All Decisions ({decisions.length})
+              All Decisions ({totalDecisions})
             </button>
             <button
-              onClick={() => setFilter('executed')}
-              className={`px-4 py-2 rounded ${filter === 'executed' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+              onClick={() => setStatusFilter('executed')}
+              className={`px-4 py-2 rounded ${statusFilter === 'executed' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
             >
-              Executed Only ({decisions.filter(d => d.was_executed).length})
+              Executed ({executedCount})
             </button>
             <button
-              onClick={() => setFilter('exploration')}
-              className={`px-4 py-2 rounded ${filter === 'exploration' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+              onClick={() => setStatusFilter('skipped')}
+              className={`px-4 py-2 rounded ${statusFilter === 'skipped' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
             >
-              Exploration ({decisions.filter(d => d.was_random).length})
+              Not Executed ({skippedCount})
+            </button>
+            <button
+              onClick={() => setStatusFilter('exploration')}
+              className={`px-4 py-2 rounded ${statusFilter === 'exploration' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              Exploration ({explorationCount})
             </button>
           </div>
         </div>
 
         {/* Decision Log Table */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          {loading ? (
+          {error ? (
+            <div className="p-8 text-center text-red-600">{error}</div>
+          ) : loading && decisions.length === 0 ? (
             <div className="p-8 text-center text-gray-600">Loading AI decisions...</div>
-          ) : filteredDecisions.length === 0 ? (
+          ) : decisions.length === 0 ? (
             <div className="p-8 text-center text-gray-600">
-              No AI decisions logged yet. The agent will start logging decisions on its next run.
+              No AI decisions for this filter yet. The agent will log new decisions on its next run.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Symbol</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Decision</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">State</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reasoning</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Q-Values</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredDecisions.map((decision) => (
-                    <tr key={decision.decision_id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {new Date(decision.timestamp).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-gray-900">{decision.symbol}</div>
-                        <div className="text-xs text-gray-500">{decision.name}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {getActionBadge(decision)}
-                      </td>
-                      <td className="px-4 py-3 text-xs">
-                        <div className="space-y-1">
-                          <div>RSI: <span className="font-semibold">{decision.state?.rsi?.toFixed(1) ?? 'N/A'}</span></div>
-                          <div>Price: <span className="font-semibold">${decision.state?.price?.toFixed(2) ?? 'N/A'}</span></div>
-                          <div>Position: <span className="font-semibold">{decision.state?.position_qty ?? 0}</span></div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 max-w-md">
-                        {decision.reasoning}
-                      </td>
-                      <td className="px-4 py-3 text-xs">
-                        {decision.q_values ? (
-                          <div className="space-y-1 font-mono">
-                            {Object.entries(decision.q_values).map(([action, value]) => (
-                              <div key={action} className={action === decision.action ? 'font-bold text-blue-600' : ''}>
-                                {action}: {typeof value === 'number' ? value.toFixed(3) : value}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">N/A</span>
-                        )}
-                      </td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Symbol</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Decision</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">State</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reasoning</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Q-Values</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {decisions.map(decision => (
+                      <tr key={decision.decision_id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {new Date(decision.timestamp).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-gray-900">{decision.symbol}</div>
+                          <div className="text-xs text-gray-500">{decision.name}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {getActionBadge(decision)}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          <div className="space-y-1">
+                            <div>RSI: <span className="font-semibold">{decision.state?.rsi?.toFixed(1) ?? 'N/A'}</span></div>
+                            <div>Price: <span className="font-semibold">${decision.state?.price?.toFixed(2) ?? 'N/A'}</span></div>
+                            <div>Position: <span className="font-semibold">{decision.state?.position_qty ?? 0}</span></div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700 max-w-md">
+                          {decision.reasoning}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          {decision.q_values ? (
+                            <div className="space-y-1 font-mono">
+                              {Object.entries(decision.q_values).map(([action, value]) => (
+                                <div key={action} className={action === decision.action ? 'font-bold text-blue-600' : ''}>
+                                  {action}: {typeof value === 'number' ? value.toFixed(3) : value}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">N/A</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {nextCursor && (
+                <div className="border-t px-4 py-3 flex justify-center bg-gray-50">
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className={`px-4 py-2 bg-gray-800 text-white rounded ${loadingMore ? 'opacity-70 cursor-not-allowed' : 'hover:bg-gray-900'}`}
+                  >
+                    {loadingMore ? 'Loading...' : 'Load More'}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -192,21 +264,21 @@ export default function AILogPage() {
         <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">Total Decisions</div>
-            <div className="text-2xl font-bold text-gray-900">{decisions.length}</div>
+            <div className="text-2xl font-bold text-gray-900">{totalDecisions}</div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">HOLD</div>
             <div className="text-2xl font-bold text-gray-600">
-              {decisions.filter(d => d.action === 'HOLD').length}
+              {holdCount}
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              {decisions.length > 0 ? ((decisions.filter(d => d.action === 'HOLD').length / decisions.length) * 100).toFixed(1) : 0}%
+              {totalDecisions > 0 ? ((holdCount / totalDecisions) * 100).toFixed(1) : 0}%
             </div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">BUY</div>
             <div className="text-2xl font-bold text-green-600">
-              {decisions.filter(d => d.action === 'BUY').length}
+              {buyCount}
             </div>
             <div className="text-xs text-gray-500 mt-1">
               {decisions.filter(d => d.action === 'BUY' && d.was_executed).length} executed
@@ -215,7 +287,7 @@ export default function AILogPage() {
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">SELL</div>
             <div className="text-2xl font-bold text-red-600">
-              {decisions.filter(d => d.action === 'SELL').length}
+              {sellCount}
             </div>
             <div className="text-xs text-gray-500 mt-1">
               {decisions.filter(d => d.action === 'SELL' && d.was_executed).length} executed
@@ -224,19 +296,19 @@ export default function AILogPage() {
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">Exploration</div>
             <div className="text-2xl font-bold text-purple-600">
-              {decisions.filter(d => d.was_random).length}
+              {explorationCount}
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              {decisions.length > 0 ? ((decisions.filter(d => d.was_random).length / decisions.length) * 100).toFixed(1) : 0}%
+              {totalDecisions > 0 ? ((explorationCount / totalDecisions) * 100).toFixed(1) : 0}%
             </div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">Exploitation</div>
             <div className="text-2xl font-bold text-blue-600">
-              {decisions.filter(d => !d.was_random).length}
+              {totalDecisions - explorationCount}
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              {decisions.length > 0 ? ((decisions.filter(d => !d.was_random).length / decisions.length) * 100).toFixed(1) : 0}%
+              {totalDecisions > 0 ? (((totalDecisions - explorationCount) / totalDecisions) * 100).toFixed(1) : 0}%
             </div>
           </div>
         </div>

@@ -13,51 +13,40 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const limit = searchParams.get('limit') || '100'
-    const symbol = searchParams.get('symbol') || null
+    const rawLimit = parseInt(searchParams.get('limit') || '50', 10)
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 50
+    const symbol = searchParams.get('symbol')
+    const statusParam = (searchParams.get('status') || 'all').toLowerCase()
+    const cursorParam = searchParams.get('cursor')
+    const cursor = cursorParam ? parseInt(cursorParam, 10) : null
 
-    let decisions
-
-    if (symbol) {
-      // Filter by symbol
-      decisions = await query(`
-        SELECT
-          tdl.decision_id,
-          s.symbol,
-          s.name,
-          tdl.timestamp,
-          tdl.state,
-          tdl.action,
-          tdl.was_executed,
-          tdl.was_random,
-          tdl.reasoning,
-          tdl.q_values
-        FROM trade_decisions_log tdl
-        JOIN stocks s ON s.stock_id = tdl.stock_id
-        WHERE s.symbol = $1
-        ORDER BY tdl.timestamp DESC
-        LIMIT $2
-      `, [symbol, limit])
-    } else {
-      // All decisions
-      decisions = await query(`
-        SELECT
-          tdl.decision_id,
-          s.symbol,
-          s.name,
-          tdl.timestamp,
-          tdl.state,
-          tdl.action,
-          tdl.was_executed,
-          tdl.was_random,
-          tdl.reasoning,
-          tdl.q_values
-        FROM trade_decisions_log tdl
-        JOIN stocks s ON s.stock_id = tdl.stock_id
-        ORDER BY tdl.timestamp DESC
-        LIMIT $1
-      `, [limit])
-    }
+    const decisions = await query(`
+      SELECT
+        tdl.decision_id,
+        s.symbol,
+        s.name,
+        tdl.timestamp,
+        tdl.state,
+        tdl.action,
+        tdl.was_executed,
+        tdl.was_random,
+        tdl.reasoning,
+        tdl.q_values
+      FROM trade_decisions_log tdl
+      JOIN stocks s ON s.stock_id = tdl.stock_id
+      WHERE ($1::text IS NULL OR s.symbol = $1)
+        AND (
+          CASE
+            WHEN $2 = 'executed' THEN tdl.was_executed = TRUE
+            WHEN $2 = 'skipped' THEN tdl.was_executed = FALSE
+            WHEN $2 = 'exploration' THEN tdl.was_random = TRUE
+            ELSE TRUE
+          END
+        )
+        AND ($3::bigint IS NULL OR tdl.decision_id < $3)
+      ORDER BY tdl.decision_id DESC
+      LIMIT $4
+    `, [symbol, statusParam, cursor, limit + 1])
 
     // Parse JSON fields
     const parsedDecisions = decisions.map((d: any) => ({
@@ -66,7 +55,14 @@ export async function GET(request: Request) {
       q_values: d.q_values && typeof d.q_values === 'string' ? JSON.parse(d.q_values) : d.q_values
     }))
 
-    return NextResponse.json({ decisions: parsedDecisions })
+    const hasMore = parsedDecisions.length > limit
+    const items = hasMore ? parsedDecisions.slice(0, limit) : parsedDecisions
+    const nextCursor = hasMore ? items[items.length - 1].decision_id : null
+
+    return NextResponse.json({
+      decisions: items,
+      nextCursor
+    })
   } catch (error) {
     console.error('AI Log API error:', error)
     return NextResponse.json({ error: 'Failed to fetch AI decision log' }, { status: 500 })

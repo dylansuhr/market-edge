@@ -3,10 +3,10 @@
 ## Phase 1 – Core Data Truth (Sprint 1)
 
 ### Tasks
-- [ ] Create `active_positions_with_market_value` and `net_worth_summary` views (`infra/migrations/0005_market_value_views.sql`)
-- [ ] Update overview page to consume new views (`apps/dashboard/app/page.tsx`)
-- [ ] Update performance page to remove duplicate metrics and add empty-state messaging (`apps/dashboard/app/performance/page.tsx`)
-- [ ] Add cursor pagination + status filters to AI log API/UI (`apps/dashboard/app/api/ai-log/route.ts`, `apps/dashboard/app/ai-log/page.tsx`)
+- [x] Create `active_positions_with_market_value` and `net_worth_summary` views (`infra/migrations/0005_market_value_views.sql`)
+- [x] Update overview page to consume new views (`apps/dashboard/app/page.tsx`)
+- [x] Update performance page to remove duplicate metrics and add empty-state messaging (`apps/dashboard/app/performance/page.tsx`)
+- [x] Add cursor pagination + status filters to AI log API/UI (`apps/dashboard/app/api/ai-log/route.ts`, `apps/dashboard/app/ai-log/page.tsx`)
 
 ### Success Criteria
 - Overview shows net worth, cash balance, open exposure, unrealized + total P&L from SQL views
