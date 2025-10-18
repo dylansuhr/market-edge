@@ -11,9 +11,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Add packages/shared to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'packages' / 'shared'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'packages'))
 
-from shared.db import get_cursor
+from shared.shared.db import get_cursor
 
 def main():
     with get_cursor() as cur:
