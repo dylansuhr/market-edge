@@ -45,6 +45,11 @@ async function fetchRuns(owner: string, repo: string, workflow: string, token?: 
     }
   )
 
+  if (res.status === 404) {
+    // Workflow file not found in repo – treat as no runs
+    return []
+  }
+
   if (!res.ok) {
     throw new Error(`GitHub API responded with ${res.status} for ${workflow}`)
   }

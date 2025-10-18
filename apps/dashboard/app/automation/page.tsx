@@ -82,10 +82,7 @@ export default function AutomationPage() {
 
         if (!cancelled) {
           setRuns(Array.isArray(data.runs) ? data.runs : [])
-        }
-
-        if (data?.error && !cancelled) {
-          setError(data.error)
+          setError(data?.error || null)
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -132,8 +129,8 @@ export default function AutomationPage() {
         </div>
 
         {error && (
-          <div className="bg-red-100 text-red-700 border border-red-200 rounded p-4">
-            Failed to load automation history. Ensure GitHub credentials are configured.
+          <div className="bg-yellow-100 text-yellow-800 border border-yellow-200 rounded p-4 text-sm">
+            {error}
           </div>
         )}
 
