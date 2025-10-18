@@ -6,6 +6,43 @@
 
 import { query } from '@/lib/db'
 
+function parseJson(field: any) {
+  if (!field) return null
+  if (typeof field === 'object') return field
+  try {
+    return JSON.parse(field)
+  } catch {
+    return null
+  }
+}
+
+function renderState(rawState: any) {
+  const state = parseJson(rawState)
+  if (!state) {
+    return <span className="text-gray-400 text-xs">N/A</span>
+  }
+
+  return (
+    <div className="space-y-1 text-xs">
+      {'rsi' in state && (
+        <div>
+          RSI: <span className="font-semibold">{Number(state.rsi).toFixed(1)}</span>
+        </div>
+      )}
+      {'price' in state && (
+        <div>
+          Price: <span className="font-semibold">${Number(state.price).toFixed(2)}</span>
+        </div>
+      )}
+      {'position_qty' in state && (
+        <div>
+          Position: <span className="font-semibold">{state.position_qty}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export const dynamic = 'force-dynamic'
 
 async function getAgentData() {
@@ -41,7 +78,11 @@ async function getAgentData() {
 
   return {
     modelStates: modelStates || [],
-    decisionLogs: decisionLogs || []
+    decisionLogs: (decisionLogs || []).map((log: any) => ({
+      ...log,
+      state: parseJson(log.state),
+      q_values: parseJson(log.q_values)
+    }))
   }
 }
 
@@ -120,7 +161,7 @@ export default async function AgentPage() {
                   <tr key={idx} className="border-b hover:bg-gray-50">
                     <td className="py-3 text-sm">{new Date(log.timestamp).toLocaleString()}</td>
                     <td className="py-3 font-semibold">{log.symbol}</td>
-                    <td className="py-3 text-sm font-mono">{log.state}</td>
+                    <td className="py-3 text-sm">{renderState(log.state)}</td>
                     <td className={`py-3 font-semibold ${log.action === 'BUY' ? 'text-green-600' : log.action === 'SELL' ? 'text-red-600' : 'text-gray-600'}`}>
                       {log.action}
                     </td>
@@ -132,7 +173,17 @@ export default async function AgentPage() {
                       )}
                     </td>
                     <td className="py-3 text-xs font-mono">
-                      {log.q_values ? JSON.stringify(log.q_values).substring(0, 50) + '...' : 'N/A'}
+                      {log.q_values ? (
+                        <div className="space-y-1">
+                          {Object.entries(log.q_values).map(([action, value]) => (
+                            <div key={action}>
+                              {action}: {typeof value === 'number' ? value.toFixed(3) : value}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">N/A</span>
+                      )}
                     </td>
                   </tr>
                 ))}

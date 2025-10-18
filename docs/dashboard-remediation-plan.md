@@ -46,10 +46,22 @@
 
 ## Future Enhancements
 - Plain-language AI decision summaries (ai-log)
+  - Format explanations using technical state deltas (RSI, SMA, VWAP) in human language
+  - Surface short explanation beneath reasoning on AI log and stock detail
+  - Provide quick links to glossary (optional, phase after initial rollout)
 - CSV exports for trades and AI decisions
+  - Extend `/api/trades` and `/api/ai-log` with export endpoints recycling cursor/filter logic
+  - Add date-range selectors and “Download CSV” buttons once pagination stable
 - Daily performance metrics pipeline + charts
+  - Implement `ops/scripts/calculate_daily_metrics.py` to populate `performance_metrics`
+  - Trigger post-settlement (4:10 PM ET) via automation
+  - Re-enable performance page charts/tables once data collected
 - Price charts on stock detail page
+  - Integrate lightweight line chart (e.g., using the latest 30 days) fed from `price_snapshots`
+  - Overlay trade markers (BUY/SELL) for visual context
 - Shared infinite-scroll component
+  - Extract load-more logic into reusable component once used in ≥3 places
+  - Improve accessibility (loading indicators, disabled states)
 
 ---
 
