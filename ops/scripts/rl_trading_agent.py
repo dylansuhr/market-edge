@@ -317,7 +317,9 @@ def trade_single_stock(symbol: str, force_exploit: bool = False) -> Dict:
         }
 
     except Exception as e:
+        import traceback
         print(f"  ✗ Error: {str(e)}")
+        traceback.print_exc()
         return {'success': False, 'error': str(e)}
 
 

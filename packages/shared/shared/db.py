@@ -502,8 +502,25 @@ def load_q_table(stock_id: int) -> Optional[Dict]:
             return None
 
         # Reconstruct full agent state from database fields
-        q_table_data = json.loads(result['q_table']) if isinstance(result['q_table'], str) else result['q_table']
-        hyperparams = json.loads(result['hyperparameters']) if isinstance(result['hyperparameters'], str) else result['hyperparameters']
+        q_table_raw = json.loads(result['q_table']) if isinstance(result['q_table'], str) else result['q_table']
+
+        # Check if q_table contains the old format (full agent state) or new format (just the table)
+        if isinstance(q_table_raw, dict) and 'q_table' in q_table_raw:
+            # Old format: full agent state was stored in q_table column
+            # Just return it as-is
+            return q_table_raw
+
+        # New format: q_table and hyperparameters stored separately
+        q_table_data = q_table_raw
+
+        # Handle hyperparameters (may be NULL in old records)
+        hyperparams_raw = result['hyperparameters']
+        if hyperparams_raw is None:
+            hyperparams = {}
+        elif isinstance(hyperparams_raw, str):
+            hyperparams = json.loads(hyperparams_raw)
+        else:
+            hyperparams = hyperparams_raw
 
         return {
             'q_table': q_table_data,
@@ -518,6 +535,21 @@ def load_q_table(stock_id: int) -> Optional[Dict]:
 # ============================================================================
 # AI DECISION LOGGING OPERATIONS
 # ============================================================================
+
+def _convert_decimals(obj):
+    """
+    Recursively convert Decimal objects to float for JSON serialization.
+    """
+    from decimal import Decimal
+
+    if isinstance(obj, Decimal):
+        return float(obj)
+    elif isinstance(obj, dict):
+        return {k: _convert_decimals(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_convert_decimals(item) for item in obj]
+    else:
+        return obj
 
 def insert_decision_log(
     stock_id: int,
@@ -546,6 +578,10 @@ def insert_decision_log(
         decision_id (primary key)
     """
     import json
+
+    # Convert any Decimal objects to float for JSON serialization
+    state = _convert_decimals(state)
+    q_values = _convert_decimals(q_values) if q_values else None
 
     with get_cursor() as cur:
         cur.execute("""

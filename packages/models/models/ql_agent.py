@@ -108,6 +108,19 @@ class QLearningAgent:
 
         return self.q_table[state_tuple][action]
 
+    def get_q_values(self, state: TradingState) -> Dict[str, float]:
+        """
+        Get all Q-values for current state (for all actions).
+
+        Args:
+            state: Current trading state
+
+        Returns:
+            Dictionary mapping actions to their Q-values
+            Example: {'BUY': 2.5, 'SELL': -1.2, 'HOLD': 0.3}
+        """
+        return {action: self.get_q_value(state, action) for action in self.ACTIONS}
+
     def get_best_action(self, state: TradingState) -> str:
         """
         Get best action for current state (exploitation).
