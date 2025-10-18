@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 const PAGE_SIZE = 50
@@ -210,9 +211,14 @@ export default function AILogPage() {
                         <td className="px-4 py-3 text-sm text-gray-600">
                           {new Date(decision.timestamp).toLocaleString()}
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-gray-900">{decision.symbol}</div>
-                          <div className="text-xs text-gray-500">{decision.name}</div>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/stocks/${decision.symbol}`}
+                          className="font-semibold text-blue-600 hover:underline"
+                        >
+                          {decision.symbol}
+                        </Link>
+                        <div className="text-xs text-gray-500">{decision.name}</div>
                         </td>
                         <td className="px-4 py-3">
                           {getActionBadge(decision)}
