@@ -139,6 +139,40 @@ def get_current_state(symbol: str, stock_id: int) -> Tuple[TradingState, Dict]:
     return state, market_data
 
 
+def calculate_reward(action: str, executed: bool, realized_pnl: float) -> float:
+    """
+    Calculate reward for Q-learning based on action and outcome.
+
+    Reward structure:
+    - BUY (executed): Small negative penalty for committing capital (-0.1)
+    - SELL (executed): Realized P&L (positive if profit, negative if loss)
+    - HOLD: Small penalty for inaction/opportunity cost (-0.01)
+    - Not executed: No reward (0)
+
+    Args:
+        action: 'BUY', 'SELL', or 'HOLD'
+        executed: Whether action was actually executed
+        realized_pnl: Profit/loss from trade (for SELL)
+
+    Returns:
+        Reward value for Q-learning update
+    """
+    if not executed:
+        return 0.0
+
+    if action == 'BUY':
+        # Small penalty for committing capital
+        return -0.1
+    elif action == 'SELL':
+        # Realized P&L is the reward
+        return realized_pnl
+    elif action == 'HOLD':
+        # Small penalty for opportunity cost
+        return -0.01
+    else:
+        return 0.0
+
+
 def execute_action(
     agent: QLearningAgent,
     symbol: str,
@@ -171,7 +205,8 @@ def execute_action(
         'price': price,
         'quantity': 0,
         'executed': False,
-        'reasoning': ''
+        'reasoning': '',
+        'realized_pnl': 0.0  # Track P&L for Q-learning rewards
     }
 
     # Build reasoning
@@ -198,7 +233,7 @@ def execute_action(
             cost = qty_to_buy * price
             if bankroll['balance'] >= cost:
                 # Execute buy
-                trade_id = insert_paper_trade(
+                trade_result = insert_paper_trade(
                     stock_id=stock_id,
                     action='BUY',
                     quantity=qty_to_buy,
@@ -209,6 +244,7 @@ def execute_action(
 
                 result['quantity'] = qty_to_buy
                 result['executed'] = True
+                result['realized_pnl'] = trade_result['realized_pnl']
                 result['reasoning'] = f"BUY {qty_to_buy} @ ${price:.2f} - {reasoning}"
 
                 print(f"    🟢 BUY {qty_to_buy} shares @ ${price:.2f}")
@@ -222,7 +258,7 @@ def execute_action(
     elif action == 'SELL':
         if position_qty > 0:
             # Sell all shares
-            trade_id = insert_paper_trade(
+            trade_result = insert_paper_trade(
                 stock_id=stock_id,
                 action='SELL',
                 quantity=position_qty,
@@ -233,9 +269,10 @@ def execute_action(
 
             result['quantity'] = position_qty
             result['executed'] = True
-            result['reasoning'] = f"SELL {position_qty} @ ${price:.2f} - {reasoning}"
+            result['realized_pnl'] = trade_result['realized_pnl']
+            result['reasoning'] = f"SELL {position_qty} @ ${price:.2f} (P&L: ${trade_result['realized_pnl']:.2f}) - {reasoning}"
 
-            print(f"    🔴 SELL {position_qty} shares @ ${price:.2f}")
+            print(f"    🔴 SELL {position_qty} shares @ ${price:.2f} (P&L: ${trade_result['realized_pnl']:.2f})")
         else:
             result['reasoning'] = f"SELL skipped (no position)"
             print(f"    ⚠️ SELL skipped (no position)")
@@ -264,6 +301,22 @@ def execute_action(
         )
     except Exception as e:
         print(f"    ⚠️ Failed to log decision: {str(e)}")
+
+    # Q-LEARNING UPDATE: Learn from this action
+    try:
+        # Calculate reward based on action outcome
+        reward = calculate_reward(action, result['executed'], result['realized_pnl'])
+
+        # Get next state after action (current market state)
+        next_state, next_market_data = get_current_state(symbol, stock_id)
+
+        # Update Q-value (done=False since position may still be open)
+        agent.update_q_value(state, action, reward, next_state, done=False)
+
+        if reward != 0:
+            print(f"    🧠 Q-Learning: Reward={reward:.2f}")
+    except Exception as e:
+        print(f"    ⚠️ Failed to update Q-values: {str(e)}")
 
     return result
 

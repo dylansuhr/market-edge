@@ -300,9 +300,12 @@ def insert_paper_trade(
     price: float,
     strategy: str = 'RL_AGENT',
     reasoning: Optional[str] = None
-) -> int:
+) -> Dict:
     """
     Insert a paper trade (mock trade for validation).
+
+    For BUY: Inserts with status='OPEN'
+    For SELL: Matches against open BUY lots (FIFO), calculates P&L, marks both as 'CLOSED'
 
     Balance is automatically calculated from all trades via the paper_bankroll view.
     No manual balance updates needed.
@@ -316,20 +319,89 @@ def insert_paper_trade(
         reasoning: AI decision explanation
 
     Returns:
-        trade_id (primary key)
+        Dictionary with:
+        - trade_id: Primary key of inserted trade
+        - realized_pnl: Profit/loss from closing positions (0 for BUY, calculated for SELL)
+        - closed_trades: List of trade_ids that were closed (empty for BUY)
     """
-    with get_cursor() as cur:
-        # Insert trade
-        cur.execute("""
-            INSERT INTO paper_trades (
-                stock_id, action, quantity, price, strategy, reasoning, executed_at
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-            RETURNING trade_id
-        """, (stock_id, action, quantity, price, strategy, reasoning))
+    from datetime import datetime
 
-        result = cur.fetchone()
-        return result['trade_id']
+    with get_cursor() as cur:
+        if action == 'BUY':
+            # BUY: Insert with status='OPEN'
+            cur.execute("""
+                INSERT INTO paper_trades (
+                    stock_id, action, quantity, price, strategy, reasoning,
+                    status, executed_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, 'OPEN', CURRENT_TIMESTAMP)
+                RETURNING trade_id
+            """, (stock_id, action, quantity, price, strategy, reasoning))
+
+            result = cur.fetchone()
+            return {
+                'trade_id': result['trade_id'],
+                'realized_pnl': 0.0,
+                'closed_trades': []
+            }
+
+        elif action == 'SELL':
+            # SELL: Match against open BUY lots (FIFO)
+            remaining_qty = quantity
+            realized_pnl = 0.0
+            closed_trade_ids = []
+
+            # Get open BUY positions (FIFO order)
+            cur.execute("""
+                SELECT trade_id, quantity, price
+                FROM paper_trades
+                WHERE stock_id = %s AND action = 'BUY' AND status = 'OPEN'
+                ORDER BY executed_at ASC
+            """, (stock_id,))
+
+            open_buys = cur.fetchall()
+
+            for buy in open_buys:
+                if remaining_qty <= 0:
+                    break
+
+                buy_qty = buy['quantity']
+                buy_price = buy['price']
+                qty_to_close = min(remaining_qty, buy_qty)
+
+                # Calculate P&L for this lot
+                pnl = (price - buy_price) * qty_to_close
+                realized_pnl += pnl
+
+                # Close this BUY lot (or partial)
+                cur.execute("""
+                    UPDATE paper_trades
+                    SET status = 'CLOSED',
+                        exit_price = %s,
+                        exit_time = CURRENT_TIMESTAMP,
+                        profit_loss = %s
+                    WHERE trade_id = %s
+                """, (price, pnl, buy['trade_id']))
+
+                closed_trade_ids.append(buy['trade_id'])
+                remaining_qty -= qty_to_close
+
+            # Insert the SELL trade with status='CLOSED' (already matched)
+            cur.execute("""
+                INSERT INTO paper_trades (
+                    stock_id, action, quantity, price, strategy, reasoning,
+                    status, exit_price, exit_time, profit_loss, executed_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, 'CLOSED', %s, CURRENT_TIMESTAMP, %s, CURRENT_TIMESTAMP)
+                RETURNING trade_id
+            """, (stock_id, action, quantity, price, strategy, reasoning, price, realized_pnl))
+
+            result = cur.fetchone()
+            return {
+                'trade_id': result['trade_id'],
+                'realized_pnl': realized_pnl,
+                'closed_trades': closed_trade_ids
+            }
 
 
 def get_active_positions() -> List[Dict]:
@@ -367,28 +439,41 @@ def get_active_positions() -> List[Dict]:
         return cur.fetchall()
 
 
-def close_position(stock_id: int, exit_price: float, exit_time: datetime = None):
+def close_position(stock_id: int, exit_price: float, exit_time: datetime = None) -> float:
     """
-    Close an open position and calculate P&L.
+    Close all open BUY positions for end-of-day settlement.
+
+    Only closes BUY trades (SELL trades are already closed via insert_paper_trade).
+    Calculates and returns total realized P&L.
 
     Args:
         stock_id: Stock identifier
-        exit_price: Selling price
+        exit_price: Selling price (market close)
         exit_time: Exit timestamp (defaults to now)
+
+    Returns:
+        Total realized P&L from closed positions
     """
     if exit_time is None:
         exit_time = datetime.now()
 
     with get_cursor() as cur:
-        # Mark all trades for this stock as closed
+        # Close all open BUY positions (SELL already handled by insert_paper_trade)
         cur.execute("""
             UPDATE paper_trades
             SET status = 'CLOSED',
                 exit_price = %s,
                 exit_time = %s,
-                profit_loss = (exit_price - price) * quantity * (CASE WHEN action = 'BUY' THEN 1 ELSE -1 END)
-            WHERE stock_id = %s AND status = 'OPEN'
+                profit_loss = (exit_price - price) * quantity
+            WHERE stock_id = %s AND action = 'BUY' AND status = 'OPEN'
+            RETURNING profit_loss
         """, (exit_price, exit_time, stock_id))
+
+        # Calculate total P&L
+        closed_trades = cur.fetchall()
+        total_pnl = sum(row['profit_loss'] for row in closed_trades)
+
+        return float(total_pnl) if closed_trades else 0.0
 
 
 def get_paper_bankroll() -> Dict:
@@ -460,12 +545,19 @@ def save_q_table(stock_id: int, agent_data: Dict):
 
     # Extract Q-table and hyperparameters from agent data
     q_table_data = agent_data.get('q_table', {})
+
+    # Calculate avg_reward for dashboard display
+    total_episodes = agent_data.get('total_episodes', 0)
+    total_rewards = agent_data.get('total_rewards', 0.0)
+    avg_reward = total_rewards / max(total_episodes, 1)
+
     hyperparameters = {
         'learning_rate': agent_data.get('learning_rate', 0.1),
         'discount_factor': agent_data.get('discount_factor', 0.95),
         'exploration_rate': agent_data.get('exploration_rate', 1.0),
-        'total_episodes': agent_data.get('total_episodes', 0),
-        'total_rewards': agent_data.get('total_rewards', 0.0)
+        'total_episodes': total_episodes,
+        'total_rewards': total_rewards,
+        'avg_reward': round(avg_reward, 4)  # Add avg_reward for dashboard
     }
 
     with get_cursor() as cur:

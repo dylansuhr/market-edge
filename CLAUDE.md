@@ -170,11 +170,22 @@ Polygon.io API → ETL (market_data_etl.py) → PostgreSQL → RL Agent (rl_trad
 ```
 Q(s, a) ← Q(s, a) + α[R + γ * max_a' Q(s', a') - Q(s, a)]
 ```
+- **α (learning_rate):** 0.1 - How much to update Q-values
+- **γ (discount_factor):** 0.95 - How much to value future rewards
+- **Updates happen immediately** after each action (not just on settlement)
 
-**Reward Function:**
-- Profit: +(exit_price - entry_price) × quantity
-- Loss: -(entry_price - exit_price) × quantity
-- Overtrading penalty: -0.01 × price
+**Reward Function** (implemented in `ops/scripts/rl_trading_agent.py:calculate_reward()`):
+- **BUY (executed):** -0.1 (penalty for committing capital)
+- **SELL (executed):** realized_pnl (profit/loss from closing position)
+- **HOLD:** -0.01 (opportunity cost)
+- **Not executed:** 0 (no penalty)
+
+**Learning Loop:**
+1. Agent observes state (RSI, MA, VWAP, position, momentum)
+2. Chooses action (ε-greedy: random with probability ε, best Q-value otherwise)
+3. Executes action → receives reward
+4. Updates Q(s,a) immediately using reward and next state
+5. Exploration rate decays: ε × 0.995 after each episode
 
 **Files:**
 - `packages/models/models/state.py` - TradingState class (discretization logic)
@@ -213,11 +224,14 @@ Key functions:
 - `get_latest_indicators(stock_id)` - Returns dict like {'RSI': 28.5, 'SMA_50': 177.85, 'VWAP': 178.12}
 
 **Paper Trading:**
-- `insert_paper_trade(stock_id, action, quantity, price, strategy, reasoning)` - Insert trade (balance auto-calculates)
-- `get_active_positions()` - Get all open positions
-- `close_position(stock_id, exit_price, exit_time)` - Close position and calculate P&L
+- `insert_paper_trade(stock_id, action, quantity, price, strategy, reasoning)` - Returns `Dict` with trade_id, realized_pnl, closed_trades
+  - **BUY:** Inserts with status='OPEN'
+  - **SELL:** Matches against open BUY lots (FIFO), calculates P&L, marks both as 'CLOSED'
+- `get_active_positions()` - Get all open BUY positions
+- `close_position(stock_id, exit_price, exit_time)` - Close all open BUY positions (for end-of-day settlement), returns total P&L
 - `get_paper_bankroll()` - Get current balance, ROI, win rate (reads from paper_bankroll VIEW)
-- **Note:** Balance is calculated dynamically from `paper_trades` table via database view
+- **Trade Lifecycle:** BUY opens position → SELL closes it (FIFO) → P&L calculated immediately
+- **Balance:** Calculated dynamically from `paper_trades` via database view (single source of truth)
 - **Removed:** `update_paper_bankroll()`, `adjust_paper_bankroll_balance()` - no longer needed
 
 **RL Model:**
