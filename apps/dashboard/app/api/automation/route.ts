@@ -6,7 +6,7 @@
 
 import { NextResponse } from 'next/server'
 
-const WORKFLOWS = ['market-data-etl.yml', 'trading-agent.yml', 'trade-settlement.yml']
+const WORKFLOWS = ['market-data-etl.yml', 'trading-agent.yml', 'settlement.yml']
 const DEFAULT_LIMIT = 50
 
 function getWorkflowFilters(searchParams: URLSearchParams) {

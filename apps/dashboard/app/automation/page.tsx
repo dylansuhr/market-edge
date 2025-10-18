@@ -18,7 +18,7 @@ interface AutomationRun {
   } | null
 }
 
-const WORKFLOWS = ['market-data-etl.yml', 'trading-agent.yml', 'trade-settlement.yml']
+const WORKFLOWS = ['market-data-etl.yml', 'trading-agent.yml', 'settlement.yml']
 
 function statusClasses(status?: string | null, conclusion?: string | null) {
   if (status === 'in_progress') {
