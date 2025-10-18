@@ -61,34 +61,6 @@ def get_closing_price(provider: PolygonProvider, symbol: str) -> float:
         raise Exception(f"Failed to get closing price for {symbol}: {str(e)}")
 
 
-def calculate_trade_pnl(
-    entry_price: float,
-    exit_price: float,
-    quantity: int,
-    action: str
-) -> float:
-    """
-    Calculate profit/loss for a trade.
-
-    Args:
-        entry_price: Purchase price
-        exit_price: Selling price
-        quantity: Number of shares
-        action: 'BUY' (long) or 'SELL' (short)
-
-    Returns:
-        Profit/loss (positive = profit, negative = loss)
-    """
-    if action == 'BUY':
-        # Long position: profit when price rises
-        pnl = (exit_price - entry_price) * quantity
-    else:
-        # Short position: profit when price falls
-        pnl = (entry_price - exit_price) * quantity
-
-    return pnl
-
-
 def settle_position(
     provider: PolygonProvider,
     position: Dict

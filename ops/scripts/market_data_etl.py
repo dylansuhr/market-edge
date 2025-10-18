@@ -1,7 +1,7 @@
 """
 Market Data ETL (Extract, Transform, Load)
 
-Fetches stock market data from Alpha Vantage and loads into PostgreSQL.
+Fetches stock market data from Polygon.io and loads into PostgreSQL.
 
 This script runs every 5 minutes during market hours (9:30 AM - 4 PM ET)
 to keep price data fresh for the RL trading agent.

@@ -384,7 +384,8 @@ def insert_paper_trade(
                 pnl = (price - buy_price) * qty_to_close
                 realized_pnl += pnl
 
-                if qty_to_close == buy_qty:
+                fully_closed = qty_to_close == buy_qty
+                if fully_closed:
                     # Fully close this BUY lot
                     cur.execute("""
                         UPDATE paper_trades
@@ -401,7 +402,8 @@ def insert_paper_trade(
                         WHERE trade_id = %s
                     """, (qty_to_close, buy['trade_id']))
 
-                closed_trade_ids.append(buy['trade_id'])
+                if fully_closed:
+                    closed_trade_ids.append(buy['trade_id'])
                 remaining_qty -= qty_to_close
 
             # Insert the SELL trade with status='CLOSED' (P&L stored ONLY here)
@@ -443,15 +445,12 @@ def get_active_positions() -> List[Dict]:
     with get_cursor(commit=False) as cur:
         cur.execute("""
             SELECT
-                pt.stock_id,
-                s.symbol,
-                SUM(CASE WHEN pt.action = 'BUY' THEN pt.quantity ELSE -pt.quantity END) as quantity,
-                AVG(CASE WHEN pt.action = 'BUY' THEN pt.price END) as avg_entry_price
-            FROM paper_trades pt
-            JOIN stocks s ON pt.stock_id = s.stock_id
-            WHERE pt.status = 'OPEN'
-            GROUP BY pt.stock_id, s.symbol
-            HAVING SUM(CASE WHEN pt.action = 'BUY' THEN pt.quantity ELSE -pt.quantity END) > 0
+                stock_id,
+                symbol,
+                quantity,
+                avg_entry_price,
+                last_trade_time
+            FROM active_positions
         """)
 
         return cur.fetchall()
