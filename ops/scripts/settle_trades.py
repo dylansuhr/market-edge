@@ -116,14 +116,10 @@ def settle_position(
         exit_price = get_closing_price(provider, symbol)
         print(f"  Closing price: ${exit_price:.2f}")
 
-        # Calculate P&L
-        pnl = calculate_trade_pnl(entry_price, exit_price, quantity, 'BUY')
-        pnl_pct = (pnl / (entry_price * quantity)) * 100
-
+        # Close position in database (synthetic SELL with realized P&L)
+        pnl = close_position(stock_id, exit_price, datetime.now())
+        pnl_pct = (pnl / (entry_price * quantity)) * 100 if quantity > 0 else 0.0
         print(f"  P&L: ${pnl:+.2f} ({pnl_pct:+.2f}%)")
-
-        # Close position in database
-        close_position(stock_id, exit_price, datetime.now())
 
         # Update RL agent (reward signal)
         try:
