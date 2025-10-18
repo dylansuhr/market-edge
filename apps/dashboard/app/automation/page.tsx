@@ -1,7 +1,6 @@
 "use client"
 
-import useSWR from 'swr'
-import clsx from 'clsx'
+import { useEffect, useState } from 'react'
 
 interface AutomationRun {
   workflow_name: string
@@ -19,13 +18,7 @@ interface AutomationRun {
   } | null
 }
 
-async function fetcher(url: string) {
-  const res = await fetch(url, { cache: 'no-store' })
-  if (!res.ok) {
-    throw new Error('Failed to fetch automation runs')
-  }
-  return res.json()
-}
+const WORKFLOWS = ['market-data-etl.yml', 'trading-agent.yml', 'trade-settlement.yml']
 
 function statusClasses(status?: string | null, conclusion?: string | null) {
   if (status === 'in_progress') {
@@ -67,11 +60,57 @@ function groupRuns(runs: AutomationRun[]) {
 }
 
 export default function AutomationPage() {
-  const { data, error, isLoading } = useSWR('/api/automation?workflow=all&limit=50', fetcher, {
-    refreshInterval: 5 * 60 * 1000
-  })
+  const [runs, setRuns] = useState<AutomationRun[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [timestamp, setTimestamp] = useState<number>(Date.now())
 
-  const runs: AutomationRun[] = data?.runs || []
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadRuns() {
+      setLoading(true)
+      setError(null)
+
+      try {
+        const res = await fetch('/api/automation?workflow=all&limit=50', { cache: 'no-store' })
+        const data = await res.json()
+
+        if (!res.ok) {
+          throw new Error(data?.error || 'Failed to fetch automation runs')
+        }
+
+        if (!cancelled) {
+          setRuns(Array.isArray(data.runs) ? data.runs : [])
+        }
+
+        if (data?.error && !cancelled) {
+          setError(data.error)
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err?.message || 'Failed to fetch automation runs')
+          setRuns([])
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadRuns()
+
+    const interval = setInterval(() => {
+      setTimestamp(Date.now())
+    }, 5 * 60 * 1000)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [timestamp])
+
   const groupedRuns = groupRuns(runs)
 
   return (
@@ -85,7 +124,7 @@ export default function AutomationPage() {
             </p>
           </div>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => setTimestamp(Date.now())}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
             Refresh
@@ -98,7 +137,7 @@ export default function AutomationPage() {
           </div>
         )}
 
-        {isLoading && runs.length === 0 ? (
+        {loading && runs.length === 0 ? (
           <div className="bg-white shadow rounded-lg p-6 text-center text-gray-500">
             Loading automation timeline...
           </div>
@@ -152,7 +191,7 @@ export default function AutomationPage() {
                           </div>
                           <div>
                             <div className="text-sm text-gray-500">Status</div>
-                            <span className={clsx('px-2 py-1 rounded text-xs font-medium', statusClasses(run.status, run.conclusion))}>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${statusClasses(run.status, run.conclusion)}`}>
                               {run.status === 'in_progress'
                                 ? 'In Progress'
                                 : run.conclusion

@@ -60,12 +60,12 @@ export async function GET(request: Request) {
     const repo = process.env.GITHUB_REPO
     const token = process.env.GITHUB_TOKEN
 
-    if (!owner || !repo) {
-      return NextResponse.json(
-        { error: 'GitHub repository not configured (GITHUB_OWNER/GITHUB_REPO)' },
-        { status: 500 }
-      )
-    }
+  if (!owner || !repo) {
+    return NextResponse.json({
+      runs: [],
+      error: 'GitHub repository not configured (set GITHUB_OWNER and GITHUB_REPO).'
+    })
+  }
 
     const workflows = getWorkflowFilters(searchParams)
     const limitParam = parseInt(searchParams.get('limit') || '50', 10)
@@ -99,6 +99,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ runs })
   } catch (error) {
     console.error('Automation API error:', error)
-    return NextResponse.json({ error: 'Failed to fetch automation runs' }, { status: 500 })
+    return NextResponse.json({ runs: [], error: 'Failed to fetch automation runs from GitHub.' })
   }
 }

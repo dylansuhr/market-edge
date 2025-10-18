@@ -31,11 +31,10 @@ async function fetchPipelineStatus(): Promise<PipelineRun[]> {
       cache: 'no-store'
     })
 
-    if (!res.ok) {
-      throw new Error(`Automation API returned ${res.status}`)
-    }
-
     const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data?.error || `Automation API returned ${res.status}`)
+    }
     const runs = Array.isArray(data.runs) ? data.runs : []
 
     const grouped: Record<string, { latest: string | null; status: string; conclusion: string | null; url: string | null }> = {}
