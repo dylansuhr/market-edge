@@ -376,7 +376,7 @@ def insert_paper_trade(
                 if remaining_qty <= 0:
                     break
 
-                buy_qty = buy['quantity']
+                buy_qty = int(buy['quantity'])
                 buy_price = float(buy['price'])  # Convert Decimal to float
                 qty_to_close = min(remaining_qty, buy_qty)
 
