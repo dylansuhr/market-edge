@@ -146,8 +146,8 @@ def calculate_reward(action: str, executed: bool, realized_pnl: float) -> float:
     Reward structure:
     - BUY (executed): Small negative penalty for committing capital (-0.1)
     - SELL (executed): Realized P&L (positive if profit, negative if loss)
-    - HOLD: Small penalty for inaction/opportunity cost (-0.01)
-    - Not executed: No reward (0)
+    - HOLD: Small penalty for inaction/opportunity cost (-0.01) - ALWAYS applies
+    - Not executed (BUY/SELL failed): No reward (0)
 
     Args:
         action: 'BUY', 'SELL', or 'HOLD'
@@ -157,6 +157,11 @@ def calculate_reward(action: str, executed: bool, realized_pnl: float) -> float:
     Returns:
         Reward value for Q-learning update
     """
+    # HOLD penalty applies even if not "executed" (HOLD is always applicable)
+    if action == 'HOLD':
+        return -0.01
+
+    # For BUY/SELL, only reward if executed
     if not executed:
         return 0.0
 
@@ -166,9 +171,6 @@ def calculate_reward(action: str, executed: bool, realized_pnl: float) -> float:
     elif action == 'SELL':
         # Realized P&L is the reward
         return realized_pnl
-    elif action == 'HOLD':
-        # Small penalty for opportunity cost
-        return -0.01
     else:
         return 0.0
 

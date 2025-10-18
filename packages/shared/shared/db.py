@@ -361,32 +361,39 @@ def insert_paper_trade(
 
             open_buys = cur.fetchall()
 
+            # Validate sufficient open quantity before proceeding
+            total_open_qty = sum(buy['quantity'] for buy in open_buys)
+            if quantity > total_open_qty:
+                raise ValueError(
+                    f"Cannot SELL {quantity} shares: only {total_open_qty} shares open. "
+                    f"Attempted short selling prevented."
+                )
+
             for buy in open_buys:
                 if remaining_qty <= 0:
                     break
 
                 buy_qty = buy['quantity']
-                buy_price = buy['price']
+                buy_price = float(buy['price'])  # Convert Decimal to float
                 qty_to_close = min(remaining_qty, buy_qty)
 
                 # Calculate P&L for this lot
                 pnl = (price - buy_price) * qty_to_close
                 realized_pnl += pnl
 
-                # Close this BUY lot (or partial)
+                # Close this BUY lot (profit_loss stays NULL to avoid double-counting)
                 cur.execute("""
                     UPDATE paper_trades
                     SET status = 'CLOSED',
                         exit_price = %s,
-                        exit_time = CURRENT_TIMESTAMP,
-                        profit_loss = %s
+                        exit_time = CURRENT_TIMESTAMP
                     WHERE trade_id = %s
-                """, (price, pnl, buy['trade_id']))
+                """, (price, buy['trade_id']))
 
                 closed_trade_ids.append(buy['trade_id'])
                 remaining_qty -= qty_to_close
 
-            # Insert the SELL trade with status='CLOSED' (already matched)
+            # Insert the SELL trade with status='CLOSED' (P&L stored ONLY here)
             cur.execute("""
                 INSERT INTO paper_trades (
                     stock_id, action, quantity, price, strategy, reasoning,
@@ -458,22 +465,29 @@ def close_position(stock_id: int, exit_price: float, exit_time: datetime = None)
         exit_time = datetime.now()
 
     with get_cursor() as cur:
-        # Close all open BUY positions (SELL already handled by insert_paper_trade)
+        # Get open BUY positions first (to calculate P&L)
+        cur.execute("""
+            SELECT quantity, price
+            FROM paper_trades
+            WHERE stock_id = %s AND action = 'BUY' AND status = 'OPEN'
+        """, (stock_id,))
+
+        open_buys = cur.fetchall()
+
+        # Calculate total P&L before closing
+        total_pnl = sum((exit_price - buy['price']) * buy['quantity'] for buy in open_buys)
+
+        # Close all open BUY positions (profit_loss stays NULL to avoid double-counting)
+        # Settlement P&L should be tracked separately or via a synthetic SELL trade
         cur.execute("""
             UPDATE paper_trades
             SET status = 'CLOSED',
                 exit_price = %s,
-                exit_time = %s,
-                profit_loss = (exit_price - price) * quantity
+                exit_time = %s
             WHERE stock_id = %s AND action = 'BUY' AND status = 'OPEN'
-            RETURNING profit_loss
         """, (exit_price, exit_time, stock_id))
 
-        # Calculate total P&L
-        closed_trades = cur.fetchall()
-        total_pnl = sum(row['profit_loss'] for row in closed_trades)
-
-        return float(total_pnl) if closed_trades else 0.0
+        return float(total_pnl)
 
 
 def get_paper_bankroll() -> Dict:
