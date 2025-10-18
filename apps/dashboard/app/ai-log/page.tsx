@@ -32,7 +32,7 @@ export default function AILogPage() {
 
   async function fetchDecisions() {
     try {
-      const res = await fetch('/api/ai-log?limit=100')
+      const res = await fetch('/api/ai-log?limit=500')  // Increased to show 2 days of activity
       const data = await res.json()
       setDecisions(data.decisions || [])
     } catch (error) {
@@ -181,15 +181,36 @@ export default function AILogPage() {
         </div>
 
         {/* Stats Summary */}
-        <div className="mt-6 grid grid-cols-4 gap-4">
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">Total Decisions</div>
             <div className="text-2xl font-bold text-gray-900">{decisions.length}</div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">Executed</div>
+            <div className="text-sm text-gray-600">HOLD</div>
+            <div className="text-2xl font-bold text-gray-600">
+              {decisions.filter(d => d.action === 'HOLD').length}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {decisions.length > 0 ? ((decisions.filter(d => d.action === 'HOLD').length / decisions.length) * 100).toFixed(1) : 0}%
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-sm text-gray-600">BUY</div>
             <div className="text-2xl font-bold text-green-600">
-              {decisions.filter(d => d.was_executed).length}
+              {decisions.filter(d => d.action === 'BUY').length}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {decisions.filter(d => d.action === 'BUY' && d.was_executed).length} executed
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-sm text-gray-600">SELL</div>
+            <div className="text-2xl font-bold text-red-600">
+              {decisions.filter(d => d.action === 'SELL').length}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {decisions.filter(d => d.action === 'SELL' && d.was_executed).length} executed
             </div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
@@ -197,12 +218,93 @@ export default function AILogPage() {
             <div className="text-2xl font-bold text-purple-600">
               {decisions.filter(d => d.was_random).length}
             </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {decisions.length > 0 ? ((decisions.filter(d => d.was_random).length / decisions.length) * 100).toFixed(1) : 0}%
+            </div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">Exploitation</div>
             <div className="text-2xl font-bold text-blue-600">
               {decisions.filter(d => !d.was_random).length}
             </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {decisions.length > 0 ? ((decisions.filter(d => !d.was_random).length / decisions.length) * 100).toFixed(1) : 0}%
+            </div>
+          </div>
+        </div>
+
+        {/* Time-based Activity Analysis */}
+        <div className="mt-6 bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Activity Summary</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="border rounded-lg p-4">
+              <div className="text-sm text-gray-600 mb-2">Last 24 Hours</div>
+              <div className="space-y-1 text-sm">
+                <div>Total: <span className="font-bold">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 24*60*60*1000)).length}</span></div>
+                <div>HOLD: <span className="font-bold text-gray-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 24*60*60*1000) && d.action === 'HOLD').length}</span></div>
+                <div>BUY: <span className="font-bold text-green-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 24*60*60*1000) && d.action === 'BUY').length}</span></div>
+                <div>SELL: <span className="font-bold text-red-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 24*60*60*1000) && d.action === 'SELL').length}</span></div>
+              </div>
+            </div>
+            <div className="border rounded-lg p-4">
+              <div className="text-sm text-gray-600 mb-2">Last 48 Hours</div>
+              <div className="space-y-1 text-sm">
+                <div>Total: <span className="font-bold">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 48*60*60*1000)).length}</span></div>
+                <div>HOLD: <span className="font-bold text-gray-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 48*60*60*1000) && d.action === 'HOLD').length}</span></div>
+                <div>BUY: <span className="font-bold text-green-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 48*60*60*1000) && d.action === 'BUY').length}</span></div>
+                <div>SELL: <span className="font-bold text-red-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 48*60*60*1000) && d.action === 'SELL').length}</span></div>
+              </div>
+            </div>
+            <div className="border rounded-lg p-4">
+              <div className="text-sm text-gray-600 mb-2">Last Hour</div>
+              <div className="space-y-1 text-sm">
+                <div>Total: <span className="font-bold">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 60*60*1000)).length}</span></div>
+                <div>HOLD: <span className="font-bold text-gray-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 60*60*1000) && d.action === 'HOLD').length}</span></div>
+                <div>BUY: <span className="font-bold text-green-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 60*60*1000) && d.action === 'BUY').length}</span></div>
+                <div>SELL: <span className="font-bold text-red-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 60*60*1000) && d.action === 'SELL').length}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Breakdown by Symbol */}
+        <div className="mt-6 bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Action Breakdown by Symbol (Last 500)</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {(() => {
+              const symbolStats = decisions.reduce((acc, d) => {
+                if (!acc[d.symbol]) {
+                  acc[d.symbol] = { total: 0, hold: 0, buy: 0, sell: 0 }
+                }
+                acc[d.symbol].total++
+                if (d.action === 'HOLD') acc[d.symbol].hold++
+                if (d.action === 'BUY') acc[d.symbol].buy++
+                if (d.action === 'SELL') acc[d.symbol].sell++
+                return acc
+              }, {} as Record<string, { total: number; hold: number; buy: number; sell: number }>)
+
+              return Object.entries(symbolStats)
+                .sort((a, b) => b[1].total - a[1].total)
+                .map(([symbol, stats]) => (
+                  <div key={symbol} className="border rounded-lg p-3">
+                    <div className="font-bold text-gray-900 mb-2">{symbol}</div>
+                    <div className="text-xs space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">HOLD:</span>
+                        <span className="font-semibold">{stats.hold} ({((stats.hold / stats.total) * 100).toFixed(0)}%)</span>
+                      </div>
+                      <div className="flex justify-between text-green-600">
+                        <span>BUY:</span>
+                        <span className="font-semibold">{stats.buy}</span>
+                      </div>
+                      <div className="flex justify-between text-red-600">
+                        <span>SELL:</span>
+                        <span className="font-semibold">{stats.sell}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+            })()}
           </div>
         </div>
       </div>
