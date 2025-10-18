@@ -4,6 +4,7 @@
  * Displays key trading metrics: bankroll, positions, recent trades
  */
 
+import Link from 'next/link'
 import { query } from '@/lib/db'
 
 export const dynamic = 'force-dynamic' // Disable caching for real-time data
@@ -168,7 +169,11 @@ export default async function OverviewPage() {
             <tbody>
               {data.positions.map((pos: any) => (
                 <tr key={pos.symbol} className="border-b">
-                  <td className="py-2 font-semibold">{pos.symbol}</td>
+                  <td className="py-2 font-semibold">
+                    <Link href={`/stocks/${pos.symbol}`} className="text-blue-600 hover:underline">
+                      {pos.symbol}
+                    </Link>
+                  </td>
                   <td className="py-2">{pos.quantity}</td>
                   <td className="py-2">${parseFloat(pos.avg_price).toFixed(2)}</td>
                   <td className="py-2">${parseFloat(pos.current_price).toFixed(2)}</td>
@@ -204,7 +209,11 @@ export default async function OverviewPage() {
               {data.recentTrades.map((trade: any, idx: number) => (
                 <tr key={idx} className="border-b">
                   <td className="py-2 text-sm">{new Date(trade.executed_at).toLocaleString()}</td>
-                  <td className="py-2 font-semibold">{trade.symbol}</td>
+                  <td className="py-2 font-semibold">
+                    <Link href={`/stocks/${trade.symbol}`} className="text-blue-600 hover:underline">
+                      {trade.symbol}
+                    </Link>
+                  </td>
                   <td className={`py-2 ${trade.action === 'BUY' ? 'text-green-600' : 'text-red-600'}`}>
                     {trade.action}
                   </td>

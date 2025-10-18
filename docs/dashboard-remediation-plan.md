@@ -19,9 +19,9 @@
 ## Phase 2 – Trades Pagination & Stock Detail (Sprint 2)
 
 ### Tasks
-- [ ] Build paginated trades API with symbol/action/date filters (`apps/dashboard/app/api/trades/route.ts`)
-- [ ] Create basic stock detail page (`apps/dashboard/app/stocks/[symbol]/page.tsx`)
-- [ ] Link all symbol references to stock detail route (overview, trades, AI log)
+- [x] Build paginated trades API with symbol/action/date filters (`apps/dashboard/app/api/trades/route.ts`)
+- [x] Create basic stock detail page (`apps/dashboard/app/stocks/[symbol]/page.tsx`)
+- [x] Link all symbol references to stock detail route (overview, trades, AI log)
 
 ### Success Criteria
 - Trades API supports cursor pagination and filtering
