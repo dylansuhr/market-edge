@@ -29,7 +29,6 @@ from shared.shared.db import (
     get_active_positions,
     close_position,
     get_paper_bankroll,
-    update_paper_bankroll,
     get_recent_prices,
     load_q_table,
     save_q_table

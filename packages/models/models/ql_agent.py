@@ -311,10 +311,15 @@ class QLearningAgent:
             exploration_rate=data['exploration_rate']
         )
 
-        # Restore Q-table
+        # Restore Q-table (using ast.literal_eval for security)
+        import ast
         for state_str, actions in data['q_table'].items():
-            state_tuple = eval(state_str)  # Convert string back to tuple
-            agent.q_table[state_tuple] = actions
+            try:
+                state_tuple = ast.literal_eval(state_str)  # Safe evaluation
+                agent.q_table[state_tuple] = actions
+            except (ValueError, SyntaxError) as e:
+                # Skip malformed state strings
+                print(f"Warning: Skipping invalid state string: {state_str[:50]}... ({e})")
 
         agent.total_episodes = data['total_episodes']
         agent.total_rewards = data['total_rewards']
