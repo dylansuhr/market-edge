@@ -381,7 +381,7 @@ def insert_paper_trade(
                 qty_to_close = min(remaining_qty, buy_qty)
 
                 # Calculate P&L for this lot
-                pnl = (price - buy_price) * qty_to_close
+                pnl = (float(price) - buy_price) * qty_to_close
                 realized_pnl += pnl
 
                 fully_closed = qty_to_close == buy_qty
