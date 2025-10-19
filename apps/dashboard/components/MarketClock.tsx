@@ -97,15 +97,23 @@ function formatCountdown(target: Date, now: Date) {
 }
 
 export function MarketClock() {
-  const [now, setNow] = useState(() => getEtDate())
+  const [now, setNow] = useState<Date | null>(null)
 
   useEffect(() => {
+    setNow(getEtDate())
     const interval = setInterval(() => {
       setNow(getEtDate())
     }, 1000)
     return () => clearInterval(interval)
   }, [])
 
+  if (!now) {
+    return (
+      <div className="flex flex-col md:flex-row md:items-center md:gap-4 text-xs md:text-sm text-gray-400">
+        <span>Loading ET clock…</span>
+      </div>
+    )
+  }
   const statusInfo = useMemo(() => computeStatus(now), [now])
 
   const timeString = now.toLocaleTimeString('en-US', {
