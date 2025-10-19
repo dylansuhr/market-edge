@@ -107,14 +107,15 @@ export function MarketClock() {
     return () => clearInterval(interval)
   }, [])
 
-  if (!now) {
+  const statusInfo = useMemo(() => (now ? computeStatus(now) : null), [now])
+
+  if (!now || !statusInfo) {
     return (
       <div className="flex flex-col md:flex-row md:items-center md:gap-4 text-xs md:text-sm text-gray-400">
         <span>Loading ET clock…</span>
       </div>
     )
   }
-  const statusInfo = useMemo(() => computeStatus(now), [now])
 
   const timeString = now.toLocaleTimeString('en-US', {
     hour: 'numeric',
