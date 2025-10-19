@@ -137,16 +137,16 @@ export function MarketClock() {
   const countdown = formatCountdown(statusInfo.target, now)
 
   return (
-    <div className="flex flex-col md:flex-row md:items-center md:gap-4 text-xs md:text-sm">
+    <div className="flex flex-col items-start gap-2 text-xs text-slate-500 md:flex-row md:items-center md:gap-4 md:text-sm">
       <div className="flex flex-col md:flex-row md:items-center md:gap-2">
-        <span className="font-semibold text-gray-900">{timeString}</span>
-        <span className="text-gray-500">{dateString}</span>
+        <span className="font-semibold text-slate-800">{timeString}</span>
+        <span>{dateString}</span>
       </div>
-      <div className="flex items-center gap-2 mt-2 md:mt-0">
-        <span className={`px-2 py-1 rounded-full ${statusColor} text-xs font-medium`}> 
+      <div className="flex items-center gap-2">
+        <span className={`px-2 py-1 rounded-full ${statusColor} text-xs font-medium`}>
           {statusInfo.status === 'open' ? 'Market Open' : 'Market Closed'}
         </span>
-        <span className="text-gray-500">{statusInfo.nextEventLabel} {countdown}</span>
+        <span>{statusInfo.nextEventLabel} {countdown}</span>
       </div>
     </div>
   )

@@ -3,11 +3,39 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-rgb: 255, 255, 255;
+  --foreground-rgb: 35, 37, 77;
+  --background-rgb: 246, 247, 251;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
   background: rgb(var(--background-rgb));
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(78, 91, 255, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: rgba(78, 91, 255, 0.05);
+}
+
+@layer utilities {
+  .text-brand-glow {
+    text-shadow: 0 8px 24px rgba(30, 35, 77, 0.35);
+  }
+
+  .card-surface {
+    @apply rounded-3xl bg-brand-surface shadow-card;
+  }
+
+  .brand-pill {
+    @apply rounded-full bg-brand-muted px-4 py-2 text-sm font-medium text-brand;
+  }
 }
