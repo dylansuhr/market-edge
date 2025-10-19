@@ -44,7 +44,7 @@ function formatDate(date: string | null | undefined) {
 const workflowLabels: Record<string, string> = {
   'market-data-etl.yml': 'Market Data ETL',
   'trading-agent.yml': 'Trading Agent',
-  'trade-settlement.yml': 'Trade Settlement'
+  'settlement.yml': 'Daily Settlement'
 }
 
 function groupRuns(runs: AutomationRun[]) {

@@ -109,18 +109,18 @@ export default function TradesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+    <div className="min-h-screen bg-brand-background p-6 md:p-10">
+      <div className="mx-auto flex max-w-7xl flex-col gap-8">
+        <div className="flex flex-col justify-between gap-4 rounded-3xl bg-brand-gradient p-8 text-white shadow-card md:flex-row md:items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Trade History</h1>
-            <p className="text-gray-600 mt-1">Raw trade log for the reinforcement-learning agent</p>
+            <h1 className="text-3xl font-semibold">Trade History</h1>
+            <p className="mt-2 text-sm text-white/80">Raw trade log for the reinforcement-learning agent</p>
           </div>
 
           <button
             onClick={() => resetAndFetch()}
             disabled={loading}
-            className={`px-4 py-2 bg-blue-600 text-white rounded ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+            className={`rounded-full px-5 py-2 text-sm font-semibold shadow ${loading ? 'cursor-not-allowed bg-white/30 text-white/80' : 'bg-white text-brand hover:bg-brand-muted hover:text-brand'}`}
           >
             {loading ? 'Refreshing...' : 'Refresh'}
           </button>
@@ -128,10 +128,10 @@ export default function TradesPage() {
 
         <form
           onSubmit={applyFilters}
-          className="bg-white rounded-lg shadow p-4 mb-6 grid gap-4 md:grid-cols-4"
+          className="grid gap-4 rounded-3xl bg-brand-surface p-6 shadow-card md:grid-cols-4"
         >
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1" htmlFor="symbol">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400" htmlFor="symbol">
               Symbol
             </label>
             <input
@@ -139,20 +139,20 @@ export default function TradesPage() {
               type="text"
               value={symbolFilter}
               onChange={e => setSymbolFilter(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full rounded-full border border-brand-muted px-4 py-2 text-sm focus:border-brand focus:outline-none"
               placeholder="AAPL"
             />
           </div>
 
- 			    <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1" htmlFor="action">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400" htmlFor="action">
               Action
             </label>
             <select
               id="action"
               value={actionFilter}
               onChange={e => setActionFilter(e.target.value as ActionFilter)}
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full rounded-full border border-brand-muted px-4 py-2 text-sm focus:border-brand focus:outline-none"
             >
               <option value="all">All</option>
               <option value="BUY">BUY</option>
@@ -161,7 +161,7 @@ export default function TradesPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1" htmlFor="from">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400" htmlFor="from">
               From
             </label>
             <input
@@ -169,12 +169,12 @@ export default function TradesPage() {
               type="date"
               value={fromDate}
               onChange={e => setFromDate(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full rounded-full border border-brand-muted px-4 py-2 text-sm focus:border-brand focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1" htmlFor="to">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400" htmlFor="to">
               To
             </label>
             <input
@@ -182,7 +182,7 @@ export default function TradesPage() {
               type="date"
               value={toDate}
               onChange={e => setToDate(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-sm"
+              className="w-full rounded-full border border-brand-muted px-4 py-2 text-sm focus:border-brand focus:outline-none"
             />
           </div>
 
@@ -196,66 +196,66 @@ export default function TradesPage() {
                 setToDate('')
                 resetAndFetch()
               }}
-              className="px-4 py-2 border border-gray-300 rounded text-sm"
+              className="rounded-full border border-brand-muted px-4 py-2 text-sm text-slate-600 hover:border-brand hover:text-brand"
             >
               Clear
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-gray-900 text-white rounded text-sm"
+              className="rounded-full bg-brand text-sm font-semibold text-white shadow-sm px-4 py-2 transition hover:bg-brand-light"
             >
               Apply Filters
             </button>
           </div>
         </form>
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-hidden rounded-3xl bg-brand-surface shadow-card">
           {error ? (
-            <div className="p-8 text-center text-red-600">{error}</div>
+            <div className="p-8 text-center text-red-500">{error}</div>
           ) : loading && trades.length === 0 ? (
-            <div className="p-8 text-center text-gray-600">Loading trades...</div>
+            <div className="p-8 text-center text-slate-500">Loading trades...</div>
           ) : trades.length === 0 ? (
-            <div className="p-8 text-center text-gray-600">
+            <div className="p-8 text-center text-slate-500">
               No trades match the current filters.
             </div>
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="border-b border-brand-muted bg-brand-muted/40">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Symbol</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">P&amp;L</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Strategy</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reasoning</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Time</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Symbol</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Action</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Qty</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Price</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">P&amp;L</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Strategy</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Reasoning</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-brand-muted text-sm text-slate-600">
                     {trades.map(trade => (
-                      <tr key={trade.trade_id} className="hover:bg-gray-50">
+                      <tr key={trade.trade_id} className="odd:bg-brand-muted/30 transition-colors hover:bg-brand-muted/50">
                         <td className="px-4 py-3 text-sm text-gray-600">
                           {new Date(trade.executed_at).toLocaleString()}
                         </td>
                         <td className="px-4 py-3">
-                          <Link href={`/stocks/${trade.symbol}`} className="font-semibold text-blue-600 hover:underline">
+                          <Link href={`/stocks/${trade.symbol}`} className="font-semibold text-brand hover:text-brand-light">
                             {trade.symbol}
                           </Link>
-                          <div className="text-xs text-gray-500">{trade.name}</div>
+                          <div className="text-xs text-slate-400">{trade.name}</div>
                         </td>
-                        <td className={`px-4 py-3 font-semibold ${trade.action === 'BUY' ? 'text-green-600' : 'text-red-600'}`}>
+                        <td className={`px-4 py-3 font-semibold ${trade.action === 'BUY' ? 'text-green-600' : 'text-red-500'}`}>
                           {trade.action}
                         </td>
                         <td className="px-4 py-3 text-sm">{trade.quantity}</td>
                         <td className="px-4 py-3 text-sm">${parseFloat(trade.price).toFixed(2)}</td>
-                        <td className={`px-4 py-3 text-sm font-semibold ${parseFloat(trade.profit_loss || '0') >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <td className={`px-4 py-3 text-sm font-semibold ${parseFloat(trade.profit_loss || '0') >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                           {trade.profit_loss ? `$${parseFloat(trade.profit_loss).toFixed(2)}` : '-'}
                         </td>
                         <td className="px-4 py-3 text-sm">{trade.strategy || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700 max-w-md">
+                        <td className="px-4 py-3 text-sm text-slate-600 max-w-md">
                           {trade.reasoning || '-'}
                         </td>
                       </tr>
@@ -264,11 +264,11 @@ export default function TradesPage() {
                 </table>
               </div>
               {nextCursor && (
-                <div className="border-t px-4 py-3 flex justify-center bg-gray-50">
+                <div className="flex justify-center border-t border-brand-muted bg-brand-muted/40 px-4 py-3">
                   <button
                     onClick={loadMore}
                     disabled={loadingMore}
-                    className={`px-4 py-2 bg-gray-800 text-white rounded ${loadingMore ? 'opacity-70 cursor-not-allowed' : 'hover:bg-gray-900'}`}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold ${loadingMore ? 'cursor-not-allowed bg-brand-muted text-slate-400' : 'bg-brand text-white hover:bg-brand-light'}`}
                   >
                     {loadingMore ? 'Loading...' : 'Load More'}
                   </button>
