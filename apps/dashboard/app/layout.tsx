@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { MarketClock } from '../components/MarketClock'
 
 export const metadata: Metadata = {
   title: 'Market Edge - RL Trading Dashboard',
@@ -15,13 +16,16 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <nav className="bg-gray-800 text-white p-4">
-          <div className="container mx-auto flex flex-wrap gap-6">
-            <a href="/" className="hover:text-blue-400">Overview</a>
-            <a href="/trades" className="hover:text-blue-400">Trades</a>
-            <a href="/performance" className="hover:text-blue-400">Performance</a>
-            <a href="/agent" className="hover:text-blue-400">Agent Stats</a>
-            <a href="/ai-log" className="hover:text-blue-400">AI Log</a>
-            <a href="/automation" className="hover:text-blue-400">Automation</a>
+          <div className="container mx-auto flex flex-wrap items-center gap-6 justify-between">
+            <div className="flex flex-wrap gap-6">
+              <a href="/" className="hover:text-blue-400">Overview</a>
+              <a href="/trades" className="hover:text-blue-400">Trades</a>
+              <a href="/performance" className="hover:text-blue-400">Performance</a>
+              <a href="/agent" className="hover:text-blue-400">Agent Stats</a>
+              <a href="/ai-log" className="hover:text-blue-400">AI Log</a>
+              <a href="/automation" className="hover:text-blue-400">Automation</a>
+            </div>
+            <MarketClock />
           </div>
         </nav>
         <main className="container mx-auto p-8">
