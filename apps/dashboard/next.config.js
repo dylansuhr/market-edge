@@ -1,4 +1,19 @@
 const path = require('path')
+const fs = require('fs')
+
+function resolveAliasRoot() {
+  const candidates = [
+    path.resolve(__dirname),
+    path.resolve(__dirname, 'apps/dashboard'),
+    path.resolve(process.cwd(), 'apps/dashboard')
+  ]
+  for (const dir of candidates) {
+    if (fs.existsSync(path.join(dir, 'lib'))) {
+      return dir
+    }
+  }
+  return path.resolve(__dirname)
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -9,9 +24,12 @@ const nextConfig = {
     if (!config.resolve.alias) {
       config.resolve.alias = {}
     }
-    config.resolve.alias['@'] = path.resolve(__dirname)
+    const aliasRoot = resolveAliasRoot()
+    config.resolve.alias['@'] = aliasRoot
     if (process.env.VERCEL) {
-      console.log('Configured @ alias for Vercel build:', config.resolve.alias['@'])
+      console.log('next.config.js __dirname:', __dirname)
+      console.log('next.config.js process.cwd():', process.cwd())
+      console.log('Resolved @ alias root:', aliasRoot)
     }
     return config
   }
