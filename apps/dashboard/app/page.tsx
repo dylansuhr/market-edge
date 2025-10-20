@@ -6,11 +6,14 @@
 
 import Link from 'next/link'
 import { query } from '@/lib/db'
+import { SurfaceCard } from '@/components/ui/SurfaceCard'
+import { MetricStat } from '@/components/ui/MetricStat'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 
 const WORKFLOW_LABELS: Record<string, string> = {
   'market-data-etl.yml': 'Market Data ETL',
   'trading-agent.yml': 'Trading Agent',
-  'trade-settlement.yml': 'Trade Settlement'
+  'settlement.yml': 'Trade Settlement'
 }
 
 type PipelineRun = {
@@ -191,32 +194,33 @@ export default async function OverviewPage() {
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4">
-          <div className="rounded-3xl border border-brand-muted bg-brand-surface p-6 shadow-card">
-            <p className="text-sm text-slate-500">Cash Balance</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-800">${parseFloat(metrics.cash_balance).toFixed(2)}</p>
-          </div>
-          <div className="rounded-3xl border border-brand-muted bg-brand-surface p-6 shadow-card">
-            <p className="text-sm text-slate-500">Unrealized P&amp;L</p>
-            <p className={`mt-2 text-2xl font-semibold ${parseFloat(metrics.total_unrealized_pnl) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-              ${parseFloat(metrics.total_unrealized_pnl).toFixed(2)}
-            </p>
-          </div>
+          <SurfaceCard className="border border-brand-muted">
+            <MetricStat label="Cash Balance" value={`$${parseFloat(metrics.cash_balance).toFixed(2)}`} />
+          </SurfaceCard>
+          <SurfaceCard className="border border-brand-muted">
+            <MetricStat
+              label="Unrealized P&L"
+              value={`$${parseFloat(metrics.total_unrealized_pnl).toFixed(2)}`}
+              tone={parseFloat(metrics.total_unrealized_pnl) >= 0 ? 'positive' : 'negative'}
+            />
+          </SurfaceCard>
         </div>
       </div>
 
       <div className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-3xl bg-brand-surface p-6 shadow-card">
-          <p className="text-sm text-slate-500">Open Positions Value</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-800">${parseFloat(metrics.open_positions_market_value).toFixed(2)}</p>
-        </div>
-        <div className="rounded-3xl bg-brand-surface p-6 shadow-card">
-          <p className="text-sm text-slate-500">Win Rate</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-800">{(parseFloat(metrics.win_rate || 0) * 100).toFixed(1)}%</p>
-        </div>
-        <div className="rounded-3xl bg-brand-surface p-6 shadow-card">
-          <p className="text-sm text-slate-500">Total Trades</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-800">{metrics.total_trades}</p>
-        </div>
+        <SurfaceCard>
+          <MetricStat label="Open Positions Value" value={`$${parseFloat(metrics.open_positions_market_value).toFixed(2)}`} />
+        </SurfaceCard>
+        <SurfaceCard>
+          <MetricStat
+            label="Win Rate"
+            value={`${(parseFloat(metrics.win_rate || 0) * 100).toFixed(1)}%`}
+            description={`${metrics.total_trades} trades`}
+          />
+        </SurfaceCard>
+        <SurfaceCard>
+          <MetricStat label="Total Trades" value={metrics.total_trades} />
+        </SurfaceCard>
       </div>
 
       {/* Performance Snapshot */}
@@ -251,7 +255,7 @@ export default async function OverviewPage() {
       </div>
 
       {/* Active Positions */}
-      <div className="mb-8 rounded-3xl bg-brand-surface p-6 shadow-card">
+      <SurfaceCard className="mb-8">
         <h2 className="text-xl font-semibold text-slate-800 mb-4">Active Positions</h2>
         {data.positions.length > 0 ? (
           <table className="w-full">
@@ -287,10 +291,10 @@ export default async function OverviewPage() {
         ) : (
           <p className="text-slate-500">No active positions</p>
         )}
-      </div>
+      </SurfaceCard>
 
       {/* Pipeline Status */}
-        <div className="mb-8 rounded-3xl bg-brand-surface p-6 shadow-card">
+      <SurfaceCard className="mb-8">
         <h2 className="mb-4 text-xl font-semibold text-slate-800">Today&apos;s Pipeline</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {automation.map(run => {
@@ -306,32 +310,42 @@ export default async function OverviewPage() {
               : 'text-brand'
 
             return (
-            <div key={run.workflow_file} className="rounded-2xl border border-brand-muted/60 bg-white p-4 text-sm text-slate-600">
-              <div className="text-xs uppercase tracking-wide text-slate-400">{run.label}</div>
-              <div className="mt-2 text-base font-semibold text-slate-800">
-                {run.latest ? new Date(run.latest).toLocaleString() : 'No runs yet'}
-              </div>
-              <div className={`mt-2 text-xs ${statusTone}`}>
-                Status: <span className="font-semibold">{run.statusLabel}</span>
-              </div>
-              {run.url && (
-                <a
-                  href={run.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 inline-block text-xs font-medium text-brand hover:text-brand-light"
-                >
-                  View on GitHub
-                </a>
-              )}
-            </div>
+              <SurfaceCard key={run.workflow_file} padding="sm" className="border border-brand-muted/60 text-sm text-slate-600">
+                <div className="text-xs uppercase tracking-wide text-slate-400">{run.label}</div>
+                <div className="mt-2 text-base font-semibold text-slate-800">
+                  {run.latest ? new Date(run.latest).toLocaleString() : 'No runs yet'}
+                </div>
+                <StatusBadge tone={
+                  statusTone.includes('emerald')
+                    ? 'positive'
+                    : statusTone.includes('rose')
+                    ? 'negative'
+                    : statusTone.includes('amber')
+                    ? 'warning'
+                    : statusTone.includes('slate')
+                    ? 'muted'
+                    : 'default'
+                } className="mt-3">
+                  {run.statusLabel}
+                </StatusBadge>
+                {run.url && (
+                  <a
+                    href={run.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-block text-xs font-medium text-brand hover:text-brand-light"
+                  >
+                    View on GitHub
+                  </a>
+                )}
+              </SurfaceCard>
             )
           })}
         </div>
-      </div>
+      </SurfaceCard>
 
       {/* Recent Trades */}
-      <div className="rounded-3xl bg-brand-surface p-6 shadow-card">
+      <SurfaceCard>
         <h2 className="mb-4 text-xl font-semibold text-slate-800">Recent Trades</h2>
         {data.recentTrades.length > 0 ? (
           <table className="w-full">
@@ -369,7 +383,7 @@ export default async function OverviewPage() {
         ) : (
           <p className="text-slate-500">No trades yet</p>
         )}
-      </div>
+      </SurfaceCard>
     </div>
   )
 }

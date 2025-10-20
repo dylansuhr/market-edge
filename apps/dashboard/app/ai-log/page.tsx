@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { SurfaceCard } from '@/components/ui/SurfaceCard'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 
 const PAGE_SIZE = 50
 type StatusFilter = 'all' | 'executed' | 'skipped' | 'exploration'
@@ -106,119 +108,207 @@ export default function AILogPage() {
     }
   }
 
-  const totalDecisions = decisions.length
-  const executedCount = decisions.filter(d => d.was_executed).length
-  const skippedCount = decisions.filter(d => !d.was_executed).length
-  const explorationCount = decisions.filter(d => d.was_random).length
-  const holdCount = decisions.filter(d => d.action === 'HOLD').length
-  const buyCount = decisions.filter(d => d.action === 'BUY').length
-  const sellCount = decisions.filter(d => d.action === 'SELL').length
+  const actionSummary = decisions.reduce(
+    (acc, decision) => {
+      acc.total += 1
+      if (decision.was_executed) {
+        acc.executed += 1
+      } else {
+        acc.skipped += 1
+      }
+
+      if (decision.was_random) {
+        acc.exploration += 1
+      }
+
+      if (decision.action === 'HOLD') {
+        acc.hold += 1
+      } else if (decision.action === 'BUY') {
+        acc.buy += 1
+        if (decision.was_executed) {
+          acc.executedBuys += 1
+        }
+      } else if (decision.action === 'SELL') {
+        acc.sell += 1
+        if (decision.was_executed) {
+          acc.executedSells += 1
+        }
+      }
+
+      return acc
+    },
+    {
+      total: 0,
+      executed: 0,
+      skipped: 0,
+      exploration: 0,
+      hold: 0,
+      buy: 0,
+      sell: 0,
+      executedBuys: 0,
+      executedSells: 0
+    }
+  )
+
+  const totalDecisions = actionSummary.total
+  const executedCount = actionSummary.executed
+  const skippedCount = actionSummary.skipped
+  const explorationCount = actionSummary.exploration
+  const holdCount = actionSummary.hold
+  const buyCount = actionSummary.buy
+  const sellCount = actionSummary.sell
+
+  const now = Date.now()
+
+  function getWindowStats(hours: number) {
+    const cutoff = now - hours * 60 * 60 * 1000
+    return decisions.reduce(
+      (acc, decision) => {
+        if (new Date(decision.timestamp).getTime() >= cutoff) {
+          acc.total += 1
+          if (decision.action === 'HOLD') acc.hold += 1
+          if (decision.action === 'BUY') acc.buy += 1
+          if (decision.action === 'SELL') acc.sell += 1
+        }
+        return acc
+      },
+      { total: 0, hold: 0, buy: 0, sell: 0 }
+    )
+  }
+
+  const last24Hours = getWindowStats(24)
+  const last48Hours = getWindowStats(48)
+  const lastHour = getWindowStats(1)
+
+  const symbolStats = decisions.reduce(
+    (acc, decision) => {
+      const entry = acc.get(decision.symbol) ?? { total: 0, hold: 0, buy: 0, sell: 0 }
+      entry.total += 1
+      if (decision.action === 'HOLD') entry.hold += 1
+      if (decision.action === 'BUY') entry.buy += 1
+      if (decision.action === 'SELL') entry.sell += 1
+      acc.set(decision.symbol, entry)
+      return acc
+    },
+    new Map<string, { total: number; hold: number; buy: number; sell: number }>()
+  )
+  const exploitationCount = totalDecisions - explorationCount
 
   function getActionBadge(decision: Decision) {
-    const baseClasses = 'px-2 py-1 rounded text-xs font-medium'
-
     if (decision.was_random) {
-      return <span className={`${baseClasses} bg-purple-100 text-purple-700`}>EXPLORE</span>
+      return (
+        <StatusBadge tone="info" className="bg-purple-100 text-purple-700">
+          EXPLORE
+        </StatusBadge>
+      )
     }
 
     if (decision.was_executed) {
       if (decision.action === 'BUY') {
-        return <span className={`${baseClasses} bg-green-100 text-green-700`}>✓ BUY</span>
+        return <StatusBadge tone="positive">✓ BUY</StatusBadge>
       }
       if (decision.action === 'SELL') {
-        return <span className={`${baseClasses} bg-red-100 text-red-700`}>✓ SELL</span>
+        return <StatusBadge tone="negative">✓ SELL</StatusBadge>
       }
     }
 
-    return <span className={`${baseClasses} bg-gray-100 text-gray-600`}>{decision.action}</span>
+    if (decision.action === 'HOLD') {
+      return <StatusBadge tone="muted">HOLD</StatusBadge>
+    }
+
+    return (
+      <StatusBadge tone={decision.action === 'BUY' ? 'positive' : decision.action === 'SELL' ? 'negative' : 'default'}>
+        {decision.action}
+      </StatusBadge>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+    <div className="min-h-screen bg-brand-background p-6 md:p-10">
+      <div className="mx-auto flex max-w-7xl flex-col gap-8">
+        <SurfaceCard
+          padding="lg"
+          className="flex flex-col gap-4 bg-brand-gradient text-white md:flex-row md:items-center md:justify-between"
+        >
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">AI Decision Log</h1>
-            <p className="text-gray-600 mt-1">Complete transparency into every decision the RL agent makes</p>
+            <h1 className="text-3xl font-semibold text-brand-glow">AI Decision Log</h1>
+            <p className="mt-2 text-sm text-white/80">Complete transparency into every decision the RL agent makes</p>
           </div>
 
           <button
             onClick={resetAndFetch}
             disabled={loading}
-            className={`px-4 py-2 bg-blue-600 text-white rounded ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+            className={`rounded-full px-5 py-2 text-sm font-semibold shadow ${loading ? 'cursor-not-allowed bg-white/30 text-white/80' : 'bg-white text-brand hover:bg-brand-muted hover:text-brand'}`}
           >
             {loading ? 'Refreshing...' : 'Refresh'}
           </button>
-        </div>
+        </SurfaceCard>
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setStatusFilter('all')}
-              className={`px-4 py-2 rounded ${statusFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-            >
-              All Decisions ({totalDecisions})
-            </button>
-            <button
-              onClick={() => setStatusFilter('executed')}
-              className={`px-4 py-2 rounded ${statusFilter === 'executed' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-            >
-              Executed ({executedCount})
-            </button>
-            <button
-              onClick={() => setStatusFilter('skipped')}
-              className={`px-4 py-2 rounded ${statusFilter === 'skipped' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-            >
-              Not Executed ({skippedCount})
-            </button>
-            <button
-              onClick={() => setStatusFilter('exploration')}
-              className={`px-4 py-2 rounded ${statusFilter === 'exploration' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-            >
-              Exploration ({explorationCount})
-            </button>
-          </div>
-        </div>
+        <SurfaceCard className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={`rounded-full px-4 py-2 text-sm font-medium transition ${statusFilter === 'all' ? 'bg-brand text-white shadow' : 'bg-brand-muted text-brand hover:bg-brand-muted/70'}`}
+          >
+            All Decisions ({totalDecisions})
+          </button>
+          <button
+            onClick={() => setStatusFilter('executed')}
+            className={`rounded-full px-4 py-2 text-sm font-medium transition ${statusFilter === 'executed' ? 'bg-brand text-white shadow' : 'bg-brand-muted text-brand hover:bg-brand-muted/70'}`}
+          >
+            Executed ({executedCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter('skipped')}
+            className={`rounded-full px-4 py-2 text-sm font-medium transition ${statusFilter === 'skipped' ? 'bg-brand text-white shadow' : 'bg-brand-muted text-brand hover:bg-brand-muted/70'}`}
+          >
+            Not Executed ({skippedCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter('exploration')}
+            className={`rounded-full px-4 py-2 text-sm font-medium transition ${statusFilter === 'exploration' ? 'bg-brand text-white shadow' : 'bg-brand-muted text-brand hover:bg-brand-muted/70'}`}
+          >
+            Exploration ({explorationCount})
+          </button>
+        </SurfaceCard>
 
         {/* Decision Log Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <SurfaceCard className="overflow-hidden">
           {error ? (
-            <div className="p-8 text-center text-red-600">{error}</div>
+            <div className="p-8 text-center text-red-500">{error}</div>
           ) : loading && decisions.length === 0 ? (
-            <div className="p-8 text-center text-gray-600">Loading AI decisions...</div>
+            <div className="p-8 text-center text-slate-500">Loading AI decisions...</div>
           ) : decisions.length === 0 ? (
-            <div className="p-8 text-center text-gray-600">
+            <div className="p-8 text-center text-slate-500">
               No AI decisions for this filter yet. The agent will log new decisions on its next run.
             </div>
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="border-b border-brand-muted bg-brand-muted/40">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Symbol</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Decision</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">State</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reasoning</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Q-Values</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Time</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Symbol</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Decision</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">State</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Reasoning</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Q-Values</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-brand-muted text-sm text-slate-600">
                     {decisions.map(decision => (
-                      <tr key={decision.decision_id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                      <tr key={decision.decision_id} className="odd:bg-brand-muted/30 transition-colors hover:bg-brand-muted/50">
+                        <td className="px-4 py-3">
                           {new Date(decision.timestamp).toLocaleString()}
                         </td>
                       <td className="px-4 py-3">
                         <Link
                           href={`/stocks/${decision.symbol}`}
-                          className="font-semibold text-blue-600 hover:underline"
+                          className="font-semibold text-brand hover:text-brand-light"
                         >
                           {decision.symbol}
                         </Link>
-                        <div className="text-xs text-gray-500">{decision.name}</div>
+                        <div className="text-xs text-slate-400">{decision.name}</div>
                         </td>
                         <td className="px-4 py-3">
                           {getActionBadge(decision)}
@@ -230,20 +320,20 @@ export default function AILogPage() {
                             <div>Position: <span className="font-semibold">{decision.state?.position_qty ?? 0}</span></div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700 max-w-md">
+                        <td className="px-4 py-3 text-sm text-slate-600 max-w-md">
                           {decision.reasoning}
                         </td>
                         <td className="px-4 py-3 text-xs">
                           {decision.q_values ? (
                             <div className="space-y-1 font-mono">
-                              {Object.entries(decision.q_values).map(([action, value]) => (
-                                <div key={action} className={action === decision.action ? 'font-bold text-blue-600' : ''}>
+                              {(Object.entries(decision.q_values) as Array<[string, number | string]>).map(([action, value]) => (
+                                <div key={action} className={action === decision.action ? 'font-bold text-brand' : 'text-slate-500'}>
                                   {action}: {typeof value === 'number' ? value.toFixed(3) : value}
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <span className="text-gray-400">N/A</span>
+                            <span className="text-slate-400">N/A</span>
                           )}
                         </td>
                       </tr>
@@ -252,11 +342,11 @@ export default function AILogPage() {
                 </table>
               </div>
               {nextCursor && (
-                <div className="border-t px-4 py-3 flex justify-center bg-gray-50">
+                <div className="flex justify-center border-t border-brand-muted bg-brand-muted/40 px-4 py-3">
                   <button
                     onClick={loadMore}
                     disabled={loadingMore}
-                    className={`px-4 py-2 bg-gray-800 text-white rounded ${loadingMore ? 'opacity-70 cursor-not-allowed' : 'hover:bg-gray-900'}`}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold ${loadingMore ? 'cursor-not-allowed bg-brand-muted text-slate-400' : 'bg-brand text-white hover:bg-brand-light'}`}
                   >
                     {loadingMore ? 'Loading...' : 'Load More'}
                   </button>
@@ -264,135 +354,116 @@ export default function AILogPage() {
               )}
             </>
           )}
-        </div>
+        </SurfaceCard>
 
-        {/* Stats Summary */}
-        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">Total Decisions</div>
-            <div className="text-2xl font-bold text-gray-900">{totalDecisions}</div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">HOLD</div>
-            <div className="text-2xl font-bold text-gray-600">
-              {holdCount}
+        <SurfaceCard>
+          <h2 className="text-xl font-semibold text-slate-800">Decision Mix</h2>
+          <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+            <div className="rounded-2xl border border-brand-muted/60 bg-brand-muted/30 p-4">
+              <div className="text-xs uppercase tracking-wide text-slate-500">Total Decisions</div>
+              <div className="mt-2 text-2xl font-semibold text-slate-800">{totalDecisions}</div>
             </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {totalDecisions > 0 ? ((holdCount / totalDecisions) * 100).toFixed(1) : 0}%
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">BUY</div>
-            <div className="text-2xl font-bold text-green-600">
-              {buyCount}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {decisions.filter(d => d.action === 'BUY' && d.was_executed).length} executed
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">SELL</div>
-            <div className="text-2xl font-bold text-red-600">
-              {sellCount}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {decisions.filter(d => d.action === 'SELL' && d.was_executed).length} executed
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">Exploration</div>
-            <div className="text-2xl font-bold text-purple-600">
-              {explorationCount}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {totalDecisions > 0 ? ((explorationCount / totalDecisions) * 100).toFixed(1) : 0}%
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">Exploitation</div>
-            <div className="text-2xl font-bold text-blue-600">
-              {totalDecisions - explorationCount}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {totalDecisions > 0 ? (((totalDecisions - explorationCount) / totalDecisions) * 100).toFixed(1) : 0}%
-            </div>
-          </div>
-        </div>
-
-        {/* Time-based Activity Analysis */}
-        <div className="mt-6 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Activity Summary</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="border rounded-lg p-4">
-              <div className="text-sm text-gray-600 mb-2">Last 24 Hours</div>
-              <div className="space-y-1 text-sm">
-                <div>Total: <span className="font-bold">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 24*60*60*1000)).length}</span></div>
-                <div>HOLD: <span className="font-bold text-gray-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 24*60*60*1000) && d.action === 'HOLD').length}</span></div>
-                <div>BUY: <span className="font-bold text-green-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 24*60*60*1000) && d.action === 'BUY').length}</span></div>
-                <div>SELL: <span className="font-bold text-red-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 24*60*60*1000) && d.action === 'SELL').length}</span></div>
+            <div className="rounded-2xl border border-brand-muted/60 bg-white p-4">
+              <div className="text-xs uppercase tracking-wide text-slate-500">HOLD</div>
+              <div className="mt-2 text-2xl font-semibold text-slate-700">{holdCount}</div>
+              <div className="text-xs text-slate-400">
+                {totalDecisions > 0 ? ((holdCount / totalDecisions) * 100).toFixed(1) : 0}%
               </div>
             </div>
-            <div className="border rounded-lg p-4">
-              <div className="text-sm text-gray-600 mb-2">Last 48 Hours</div>
-              <div className="space-y-1 text-sm">
-                <div>Total: <span className="font-bold">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 48*60*60*1000)).length}</span></div>
-                <div>HOLD: <span className="font-bold text-gray-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 48*60*60*1000) && d.action === 'HOLD').length}</span></div>
-                <div>BUY: <span className="font-bold text-green-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 48*60*60*1000) && d.action === 'BUY').length}</span></div>
-                <div>SELL: <span className="font-bold text-red-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 48*60*60*1000) && d.action === 'SELL').length}</span></div>
+            <div className="rounded-2xl border border-brand-muted/60 bg-white p-4">
+              <div className="text-xs uppercase tracking-wide text-emerald-500">BUY</div>
+              <div className="mt-2 text-2xl font-semibold text-emerald-600">{buyCount}</div>
+              <div className="text-xs text-slate-400">
+                {actionSummary.executedBuys} executed
               </div>
             </div>
-            <div className="border rounded-lg p-4">
-              <div className="text-sm text-gray-600 mb-2">Last Hour</div>
-              <div className="space-y-1 text-sm">
-                <div>Total: <span className="font-bold">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 60*60*1000)).length}</span></div>
-                <div>HOLD: <span className="font-bold text-gray-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 60*60*1000) && d.action === 'HOLD').length}</span></div>
-                <div>BUY: <span className="font-bold text-green-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 60*60*1000) && d.action === 'BUY').length}</span></div>
-                <div>SELL: <span className="font-bold text-red-600">{decisions.filter(d => new Date(d.timestamp) > new Date(Date.now() - 60*60*1000) && d.action === 'SELL').length}</span></div>
+            <div className="rounded-2xl border border-brand-muted/60 bg-white p-4">
+              <div className="text-xs uppercase tracking-wide text-rose-500">SELL</div>
+              <div className="mt-2 text-2xl font-semibold text-rose-500">{sellCount}</div>
+              <div className="text-xs text-slate-400">
+                {actionSummary.executedSells} executed
+              </div>
+            </div>
+            <div className="rounded-2xl border border-brand-muted/60 bg-white p-4">
+              <div className="text-xs uppercase tracking-wide text-purple-500">Exploration</div>
+              <div className="mt-2 text-2xl font-semibold text-purple-600">{explorationCount}</div>
+              <div className="text-xs text-slate-400">
+                {totalDecisions > 0 ? ((explorationCount / totalDecisions) * 100).toFixed(1) : 0}%
+              </div>
+            </div>
+            <div className="rounded-2xl border border-brand-muted/60 bg-white p-4">
+              <div className="text-xs uppercase tracking-wide text-brand">Exploitation</div>
+              <div className="mt-2 text-2xl font-semibold text-slate-800">{exploitationCount}</div>
+              <div className="text-xs text-slate-400">
+                {totalDecisions > 0
+                  ? ((exploitationCount / totalDecisions) * 100).toFixed(1)
+                  : 0}%
               </div>
             </div>
           </div>
-        </div>
+        </SurfaceCard>
 
-        {/* Action Breakdown by Symbol */}
-        <div className="mt-6 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Action Breakdown by Symbol (Last 500)</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {(() => {
-              const symbolStats = decisions.reduce((acc, d) => {
-                if (!acc[d.symbol]) {
-                  acc[d.symbol] = { total: 0, hold: 0, buy: 0, sell: 0 }
-                }
-                acc[d.symbol].total++
-                if (d.action === 'HOLD') acc[d.symbol].hold++
-                if (d.action === 'BUY') acc[d.symbol].buy++
-                if (d.action === 'SELL') acc[d.symbol].sell++
-                return acc
-              }, {} as Record<string, { total: number; hold: number; buy: number; sell: number }>)
+        <SurfaceCard>
+          <h2 className="mb-4 text-xl font-semibold text-slate-800">Recent Activity Summary</h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-brand-muted/60 bg-white p-4">
+              <div className="text-sm text-slate-500">Last 24 Hours</div>
+              <div className="mt-2 space-y-1 text-sm text-slate-600">
+                <div>Total: <span className="font-bold">{last24Hours.total}</span></div>
+                <div>HOLD: <span className="font-bold text-slate-600">{last24Hours.hold}</span></div>
+                <div>BUY: <span className="font-bold text-emerald-600">{last24Hours.buy}</span></div>
+                <div>SELL: <span className="font-bold text-rose-500">{last24Hours.sell}</span></div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-brand-muted/60 bg-white p-4">
+              <div className="text-sm text-slate-500">Last 48 Hours</div>
+              <div className="mt-2 space-y-1 text-sm text-slate-600">
+                <div>Total: <span className="font-bold">{last48Hours.total}</span></div>
+                <div>HOLD: <span className="font-bold text-slate-600">{last48Hours.hold}</span></div>
+                <div>BUY: <span className="font-bold text-emerald-600">{last48Hours.buy}</span></div>
+                <div>SELL: <span className="font-bold text-rose-500">{last48Hours.sell}</span></div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-brand-muted/60 bg-white p-4">
+              <div className="text-sm text-slate-500">Last Hour</div>
+              <div className="mt-2 space-y-1 text-sm text-slate-600">
+                <div>Total: <span className="font-bold">{lastHour.total}</span></div>
+                <div>HOLD: <span className="font-bold text-slate-600">{lastHour.hold}</span></div>
+                <div>BUY: <span className="font-bold text-emerald-600">{lastHour.buy}</span></div>
+                <div>SELL: <span className="font-bold text-rose-500">{lastHour.sell}</span></div>
+              </div>
+            </div>
+          </div>
+        </SurfaceCard>
 
-              return Object.entries(symbolStats)
-                .sort((a, b) => b[1].total - a[1].total)
-                .map(([symbol, stats]) => (
-                  <div key={symbol} className="border rounded-lg p-3">
-                    <div className="font-bold text-gray-900 mb-2">{symbol}</div>
-                    <div className="text-xs space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">HOLD:</span>
-                        <span className="font-semibold">{stats.hold} ({((stats.hold / stats.total) * 100).toFixed(0)}%)</span>
-                      </div>
-                      <div className="flex justify-between text-green-600">
-                        <span>BUY:</span>
-                        <span className="font-semibold">{stats.buy}</span>
-                      </div>
-                      <div className="flex justify-between text-red-600">
-                        <span>SELL:</span>
-                        <span className="font-semibold">{stats.sell}</span>
-                      </div>
+        <SurfaceCard>
+          <h2 className="text-xl font-semibold text-slate-800">Action Breakdown by Symbol (Last 500)</h2>
+          <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+            {Array.from(symbolStats.entries())
+              .sort((a, b) => b[1].total - a[1].total)
+              .map(([symbol, stats]) => (
+                <div key={symbol} className="rounded-2xl border border-brand-muted/60 bg-white p-3">
+                  <div className="mb-2 font-semibold text-slate-800">{symbol}</div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between text-slate-500">
+                      <span>HOLD</span>
+                      <span className="font-semibold text-slate-700">
+                        {stats.hold} ({((stats.hold / stats.total) * 100).toFixed(0)}%)
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-emerald-600">
+                      <span>BUY</span>
+                      <span className="font-semibold">{stats.buy}</span>
+                    </div>
+                    <div className="flex justify-between text-rose-500">
+                      <span>SELL</span>
+                      <span className="font-semibold">{stats.sell}</span>
                     </div>
                   </div>
-                ))
-            })()}
+                </div>
+              ))}
           </div>
-        </div>
+        </SurfaceCard>
       </div>
     </div>
   )
