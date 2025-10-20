@@ -8,7 +8,7 @@ function resolveAliasRoot() {
     path.resolve(process.cwd(), 'apps/dashboard')
   ]
   for (const dir of candidates) {
-    if (fs.existsSync(path.join(dir, 'lib'))) {
+    if (fs.existsSync(path.join(dir, 'lib', 'cn.ts'))) {
       return dir
     }
   }
