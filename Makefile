@@ -1,6 +1,12 @@
 # Market-Edge Makefile
 # Convenient shortcuts for common operations
 
+# Load environment variables from .env file if it exists
+ifneq (,$(wildcard .env))
+    include .env
+    export
+endif
+
 .PHONY: help install etl trade settle dashboard db-migrate db-ping verify clean
 
 # Default target
@@ -49,7 +55,15 @@ dashboard:
 # Run database migrations
 db-migrate:
 	@echo "Running database migrations..."
-	psql $(DATABASE_URL) -f infra/migrations/0001_init.sql
+	@echo "→ Applying 0001_init.sql..."
+	@psql "$(DATABASE_URL)" -f infra/migrations/0001_init.sql
+	@echo "→ Applying 0002_bankroll_to_view.sql..."
+	@psql "$(DATABASE_URL)" -f infra/migrations/0002_bankroll_to_view.sql
+	@echo "→ Applying 0004_remove_alpha_vantage_artifacts.sql..."
+	@psql "$(DATABASE_URL)" -f infra/migrations/0004_remove_alpha_vantage_artifacts.sql
+	@echo "→ Applying 0005_market_value_views.sql..."
+	@psql "$(DATABASE_URL)" -f infra/migrations/0005_market_value_views.sql
+	@echo "✓ All migrations applied successfully"
 
 # Test database connection
 db-ping:
