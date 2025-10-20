@@ -1,6 +1,9 @@
 "use client"
 
+import type { ComponentProps } from 'react'
 import { useEffect, useState } from 'react'
+import { SurfaceCard } from '@/components/ui/SurfaceCard'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 
 interface AutomationRun {
   workflow_name: string
@@ -20,20 +23,12 @@ interface AutomationRun {
 
 const WORKFLOWS = ['market-data-etl.yml', 'trading-agent.yml', 'settlement.yml']
 
-function statusClasses(status?: string | null, conclusion?: string | null) {
-  if (status === 'in_progress') {
-    return 'bg-yellow-100 text-yellow-700'
-  }
-  if (conclusion === 'success') {
-    return 'bg-green-100 text-green-700'
-  }
-  if (conclusion === 'failure') {
-    return 'bg-red-100 text-red-700'
-  }
-  if (conclusion === 'cancelled') {
-    return 'bg-gray-100 text-gray-600'
-  }
-  return 'bg-gray-100 text-gray-600'
+type StatusTone = NonNullable<ComponentProps<typeof StatusBadge>['tone']>
+
+const workflowLabels: Record<string, string> = {
+  'market-data-etl.yml': 'Market Data ETL',
+  'trading-agent.yml': 'Trading Agent',
+  'settlement.yml': 'Daily Settlement'
 }
 
 function formatDate(date: string | null | undefined) {
@@ -41,10 +36,30 @@ function formatDate(date: string | null | undefined) {
   return new Date(date).toLocaleString()
 }
 
-const workflowLabels: Record<string, string> = {
-  'market-data-etl.yml': 'Market Data ETL',
-  'trading-agent.yml': 'Trading Agent',
-  'settlement.yml': 'Daily Settlement'
+function statusTone(status?: string | null, conclusion?: string | null): StatusTone {
+  if (status === 'in_progress') {
+    return 'warning'
+  }
+  if (conclusion === 'success') {
+    return 'positive'
+  }
+  if (conclusion === 'failure') {
+    return 'negative'
+  }
+  if (conclusion === 'cancelled') {
+    return 'muted'
+  }
+  return 'info'
+}
+
+function statusLabel(status?: string | null, conclusion?: string | null) {
+  if (status === 'in_progress') {
+    return 'In Progress'
+  }
+  if (conclusion) {
+    return conclusion.toUpperCase()
+  }
+  return status?.toUpperCase() || 'UNKNOWN'
 }
 
 function groupRuns(runs: AutomationRun[]) {
@@ -111,100 +126,103 @@ export default function AutomationPage() {
   const groupedRuns = groupRuns(runs)
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-5xl mx-auto space-y-8">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-brand-background p-6 md:p-10">
+      <div className="mx-auto flex max-w-5xl flex-col gap-8">
+        <SurfaceCard
+          padding="lg"
+          className="flex flex-col gap-4 bg-brand-gradient text-white md:flex-row md:items-center md:justify-between"
+        >
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Automation Timeline</h1>
-            <p className="text-gray-600 mt-1">
-              Recent GitHub Actions runs for ETL, trading, and settlement.
+            <h1 className="text-3xl font-semibold text-brand-glow">Automation Timeline</h1>
+            <p className="mt-2 text-sm text-white/80">
+              GitHub Actions activity for ETL, trading, and settlement workflows.
             </p>
           </div>
           <button
             onClick={() => setTimestamp(Date.now())}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-brand shadow transition hover:bg-brand-muted hover:text-brand"
           >
             Refresh
           </button>
-        </div>
+        </SurfaceCard>
 
         {error && (
-          <div className="bg-yellow-100 text-yellow-800 border border-yellow-200 rounded p-4 text-sm">
-            {error}
-          </div>
+          <SurfaceCard className="border border-amber-200 bg-amber-50 text-amber-700">
+            <p className="text-sm">{error}</p>
+          </SurfaceCard>
         )}
 
         {loading && runs.length === 0 ? (
-          <div className="bg-white shadow rounded-lg p-6 text-center text-gray-500">
+          <SurfaceCard className="text-center text-slate-500">
             Loading automation timeline...
-          </div>
+          </SurfaceCard>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {WORKFLOWS.map(workflow => {
               const history = groupedRuns[workflow] || []
               return (
-                <div key={workflow} className="bg-white shadow rounded-lg overflow-hidden">
-                  <div className="border-b px-6 py-4 flex items-center justify-between bg-gray-50">
+                <SurfaceCard key={workflow} className="overflow-hidden">
+                  <div className="flex items-start justify-between gap-4 border-b border-brand-muted/60 bg-brand-muted/30 px-6 py-4">
                     <div>
-                      <h2 className="text-xl font-semibold text-gray-900">
+                      <h2 className="text-xl font-semibold text-slate-800">
                         {workflowLabels[workflow] || workflow}
                       </h2>
-                      <p className="text-sm text-gray-500">Workflow file: {workflow}</p>
+                      <p className="text-sm text-slate-500">Workflow file: {workflow}</p>
                     </div>
                     {history.length > 0 && (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-xs uppercase tracking-wide text-slate-500">
                         Last run: {formatDate(history[0].updated_at || history[0].created_at)}
                       </div>
                     )}
                   </div>
 
                   {history.length > 0 ? (
-                    <ul className="divide-y divide-gray-200">
+                    <ul className="divide-y divide-brand-muted">
                       {history.map(run => (
-                        <li key={run.run_id} className="px-6 py-4 flex flex-wrap gap-4 items-start">
+                        <li key={run.run_id} className="flex flex-wrap items-start gap-6 px-6 py-5 text-sm text-slate-600">
                           <div>
-                            <div className="text-sm text-gray-500">Run ID</div>
+                            <div className="text-xs uppercase tracking-wide text-slate-400">Run ID</div>
                             <a
                               href={run.html_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-blue-600 hover:underline text-sm"
+                              className="font-semibold text-brand hover:text-brand-light"
                             >
                               #{run.run_id}
                             </a>
                           </div>
                           <div>
-                            <div className="text-sm text-gray-500">Actor</div>
-                            <div className="flex items-center gap-2">
-                              {run.actor?.avatar_url && (
+                            <div className="text-xs uppercase tracking-wide text-slate-400">Actor</div>
+                            <div className="flex items-center gap-2 text-sm">
+                              {run.actor?.avatar_url ? (
                                 <img
                                   src={run.actor.avatar_url}
                                   alt={run.actor.login}
-                                  className="w-6 h-6 rounded-full"
+                                  className="h-6 w-6 rounded-full"
                                 />
+                              ) : (
+                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-muted text-xs font-semibold text-brand">
+                                  {run.actor?.login?.[0]?.toUpperCase() || 'S'}
+                                </div>
                               )}
-                              <span className="text-sm text-gray-700">{run.actor?.login || 'system'}</span>
+                              <span>{run.actor?.login || 'system'}</span>
                             </div>
                           </div>
                           <div>
-                            <div className="text-sm text-gray-500">Status</div>
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${statusClasses(run.status, run.conclusion)}`}>
-                              {run.status === 'in_progress'
-                                ? 'In Progress'
-                                : run.conclusion
-                                ? run.conclusion.toUpperCase()
-                                : run.status || 'UNKNOWN'}
-                            </span>
+                            <div className="text-xs uppercase tracking-wide text-slate-400">Status</div>
+                            <StatusBadge tone={statusTone(run.status, run.conclusion)} className="mt-1">
+                              {statusLabel(run.status, run.conclusion)}
+                            </StatusBadge>
                           </div>
-                          <div className="flex-1 min-w-[180px]">
-                            <div className="text-sm text-gray-500">Started</div>
-                            <div className="text-sm text-gray-700">{formatDate(run.created_at)}</div>
+                          <div className="min-w-[180px] flex-1">
+                            <div className="text-xs uppercase tracking-wide text-slate-400">Started</div>
+                            <div>{formatDate(run.created_at)}</div>
                           </div>
-                          <div className="flex-1 min-w-[180px]">
-                            <div className="text-sm text-gray-500">
+                          <div className="min-w-[180px] flex-1">
+                            <div className="text-xs uppercase tracking-wide text-slate-400">
                               {run.status === 'in_progress' ? 'Estimated Completion' : 'Finished'}
                             </div>
-                            <div className="text-sm text-gray-700">
+                            <div>
                               {run.status === 'in_progress'
                                 ? 'In progress…'
                                 : formatDate(run.updated_at || run.created_at)}
@@ -214,9 +232,9 @@ export default function AutomationPage() {
                       ))}
                     </ul>
                   ) : (
-                    <div className="px-6 py-8 text-gray-500">No runs for this workflow yet.</div>
+                    <div className="px-6 py-8 text-slate-500">No runs for this workflow yet.</div>
                   )}
-                </div>
+                </SurfaceCard>
               )
             })}
           </div>

@@ -1,6 +1,11 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { query } from '@/lib/db'
+import { SurfaceCard } from '@/components/ui/SurfaceCard'
+import { MetricStat } from '@/components/ui/MetricStat'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+
+export const dynamic = 'force-dynamic'
 
 interface StockParams {
   params: {
@@ -111,24 +116,24 @@ async function getStockData(symbolParam: string) {
 function renderStateCell(rawState: any) {
   const state = typeof rawState === 'string' ? JSON.parse(rawState) : rawState
   if (!state || typeof state !== 'object') {
-    return <span className="text-gray-400">N/A</span>
+    return <span className="text-slate-400">N/A</span>
   }
 
   return (
-    <div className="space-y-1 text-xs">
+    <div className="space-y-1 text-xs text-slate-600">
       {'rsi' in state && (
         <div>
-          RSI: <span className="font-semibold">{Number(state.rsi).toFixed(1)}</span>
+          RSI: <span className="font-semibold text-slate-800">{Number(state.rsi).toFixed(1)}</span>
         </div>
       )}
       {'price' in state && (
         <div>
-          Price: <span className="font-semibold">${Number(state.price).toFixed(2)}</span>
+          Price: <span className="font-semibold text-slate-800">${Number(state.price).toFixed(2)}</span>
         </div>
       )}
       {'position_qty' in state && (
         <div>
-          Position: <span className="font-semibold">{state.position_qty}</span>
+          Position: <span className="font-semibold text-slate-800">{state.position_qty}</span>
         </div>
       )}
     </div>
@@ -147,92 +152,102 @@ export default async function StockDetailPage({ params }: StockParams) {
   const lastPriceTimestamp = position?.price_timestamp ?? latestPrice?.timestamp ?? null
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
-        <div className="flex items-start justify-between flex-wrap gap-4">
-          <div>
-            <p className="text-sm text-gray-500 mb-1">
-              <Link href="/trades" className="text-blue-600 hover:underline">
+    <div className="min-h-screen bg-brand-background p-6 md:p-10">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8">
+        <SurfaceCard
+          padding="lg"
+          className="flex flex-col gap-6 bg-brand-gradient text-white"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <Link href="/trades" className="text-sm font-medium text-white/80 transition hover:text-white">
                 ← Back to trades
               </Link>
-            </p>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {stock.symbol}{' '}
-              <span className="text-xl text-gray-500 font-normal">({stock.name})</span>
-            </h1>
-            {lastPriceTimestamp ? (
-              <p className="text-gray-500 text-sm">
-                Last price update: {new Date(lastPriceTimestamp).toLocaleString()}
+              <h1 className="mt-2 text-4xl font-semibold text-brand-glow">
+                {stock.symbol}{' '}
+                <span className="text-2xl font-normal text-white/80">{stock.name}</span>
+              </h1>
+              <p className="mt-2 text-sm text-white/80">
+                {lastPriceTimestamp ? (
+                  <>Last price update: {new Date(lastPriceTimestamp).toLocaleString()}</>
+                ) : (
+                  'No recent pricing data'
+                )}
               </p>
-            ) : (
-              <p className="text-gray-500 text-sm">No recent pricing data</p>
-            )}
+            </div>
+            <div className="rounded-3xl bg-white/15 px-6 py-5 text-right shadow-card">
+              <p className="text-xs uppercase tracking-wide text-white/70">Last Price</p>
+              <p className="mt-1 text-4xl font-semibold text-white">
+                ${Number(lastPrice).toFixed(2)}
+              </p>
+            </div>
           </div>
-          <div className="bg-white shadow rounded-lg p-4 text-right">
-            <div className="text-sm text-gray-500 uppercase">Last Price</div>
-            <div className="text-3xl font-bold text-gray-900">${Number(lastPrice).toFixed(2)}</div>
-          </div>
-        </div>
+        </SurfaceCard>
 
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Current Position</h2>
+        <SurfaceCard>
+          <h2 className="mb-4 text-xl font-semibold text-slate-800">Current Position</h2>
           {position ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="border rounded-lg p-4">
-                <div className="text-sm text-gray-500 uppercase mb-1">Quantity</div>
-                <div className="text-2xl font-bold text-gray-900">{position.quantity}</div>
-              </div>
-              <div className="border rounded-lg p-4">
-                <div className="text-sm text-gray-500 uppercase mb-1">Average Entry</div>
-                <div className="text-2xl font-bold text-gray-900">${Number(position.avg_entry_price).toFixed(2)}</div>
-              </div>
-              <div className="border rounded-lg p-4">
-                <div className="text-sm text-gray-500 uppercase mb-1">Market Value</div>
-                <div className="text-2xl font-bold text-gray-900">${Number(position.market_value).toFixed(2)}</div>
-                <div className={`text-sm ${Number(position.unrealized_pnl) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <MetricStat label="Quantity" value={position.quantity} />
+              <MetricStat label="Average Entry" value={`$${Number(position.avg_entry_price).toFixed(2)}`} />
+              <MetricStat label="Market Value" value={`$${Number(position.market_value).toFixed(2)}`} />
+              <div className="flex flex-col gap-1">
+                <span className="text-sm uppercase tracking-wide text-slate-400">Unrealized P&amp;L</span>
+                <StatusBadge tone={Number(position.unrealized_pnl) >= 0 ? 'positive' : 'negative'}>
                   {Number(position.unrealized_pnl) >= 0 ? '+' : ''}
                   ${Number(position.unrealized_pnl).toFixed(2)} ({Number(position.unrealized_pnl_pct).toFixed(2)}%)
-                </div>
+                </StatusBadge>
               </div>
             </div>
           ) : (
-            <p className="text-gray-500">No open position for this symbol.</p>
+            <p className="text-slate-500">No open position for this symbol.</p>
           )}
-        </div>
+        </SurfaceCard>
 
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Recent Trades</h2>
+        <SurfaceCard className="overflow-hidden">
+          <h2 className="mb-4 text-xl font-semibold text-slate-800">Recent Trades</h2>
           {trades.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">P&amp;L</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Strategy</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reasoning</th>
+                <thead className="border-b border-brand-muted bg-brand-muted/40">
+                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-3">Time</th>
+                    <th className="px-4 py-3">Action</th>
+                    <th className="px-4 py-3">Qty</th>
+                    <th className="px-4 py-3">Price</th>
+                    <th className="px-4 py-3">P&amp;L</th>
+                    <th className="px-4 py-3">Strategy</th>
+                    <th className="px-4 py-3">Reasoning</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-brand-muted text-sm text-slate-600">
                   {trades.map(trade => (
-                    <tr key={trade.trade_id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                    <tr key={trade.trade_id} className="odd:bg-brand-muted/30 transition-colors hover:bg-brand-muted/40">
+                      <td className="px-4 py-3 text-sm">
                         {new Date(trade.executed_at).toLocaleString()}
                       </td>
-                      <td className={`px-4 py-3 font-semibold ${trade.action === 'BUY' ? 'text-green-600' : 'text-red-600'}`}>
-                        {trade.action}
+                      <td className="px-4 py-3">
+                        <StatusBadge tone={trade.action === 'BUY' ? 'positive' : 'negative'}>
+                          {trade.action}
+                        </StatusBadge>
                       </td>
                       <td className="px-4 py-3 text-sm">{trade.quantity}</td>
                       <td className="px-4 py-3 text-sm">${Number(trade.price).toFixed(2)}</td>
-                      <td className={`px-4 py-3 text-sm font-semibold ${Number(trade.profit_loss || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {trade.profit_loss ? `$${Number(trade.profit_loss).toFixed(2)}` : '-'}
+                      <td className="px-4 py-3">
+                        {trade.profit_loss ? (
+                          <StatusBadge
+                            tone={Number(trade.profit_loss) >= 0 ? 'positive' : 'negative'}
+                            className="font-semibold"
+                          >
+                            ${Number(trade.profit_loss).toFixed(2)}
+                          </StatusBadge>
+                        ) : (
+                          <span className="text-slate-400">–</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm">{trade.strategy || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700 max-w-md">
-                        {trade.reasoning || '-'}
+                      <td className="px-4 py-3 text-sm text-slate-600">
+                        {trade.reasoning || '–'}
                       </td>
                     </tr>
                   ))}
@@ -240,51 +255,52 @@ export default async function StockDetailPage({ params }: StockParams) {
               </table>
             </div>
           ) : (
-            <p className="text-gray-500">No trades recorded for this symbol yet.</p>
+            <p className="text-slate-500">No trades recorded for this symbol yet.</p>
           )}
-        </div>
+        </SurfaceCard>
 
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">AI Decision Timeline</h2>
+        <SurfaceCard className="overflow-hidden">
+          <h2 className="mb-4 text-xl font-semibold text-slate-800">AI Decision Timeline</h2>
           {decisions.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Decision</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Executed?</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reasoning</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">State Snapshot</th>
+                <thead className="border-b border-brand-muted bg-brand-muted/40">
+                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-3">Time</th>
+                    <th className="px-4 py-3">Decision</th>
+                    <th className="px-4 py-3">Executed?</th>
+                    <th className="px-4 py-3">Reasoning</th>
+                    <th className="px-4 py-3">State Snapshot</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-brand-muted text-sm text-slate-600">
                   {decisions.map(decision => (
-                    <tr key={decision.decision_id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                    <tr key={decision.decision_id} className="odd:bg-brand-muted/30 transition-colors hover:bg-brand-muted/40">
+                      <td className="px-4 py-3 text-sm">
                         {new Date(decision.timestamp).toLocaleString()}
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${
-                            decision.was_random
-                              ? 'bg-purple-100 text-purple-700'
-                              : decision.action === 'BUY'
-                              ? 'bg-green-100 text-green-700'
-                              : decision.action === 'SELL'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {decision.action}
-                        </span>
+                        <StatusBadge tone={
+                          decision.was_random
+                            ? 'info'
+                            : decision.action === 'BUY'
+                            ? 'positive'
+                            : decision.action === 'SELL'
+                            ? 'negative'
+                            : 'muted'
+                        } className={decision.was_random ? 'bg-purple-100 text-purple-700' : undefined}>
+                          {decision.was_random ? 'EXPLORE' : decision.action}
+                        </StatusBadge>
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        {decision.was_executed ? 'Executed' : 'Skipped'}
-                        {decision.was_random && <span className="ml-2 text-xs text-purple-600">(Exploration)</span>}
+                        {decision.was_executed ? (
+                          <StatusBadge tone="positive">Executed</StatusBadge>
+                        ) : (
+                          <StatusBadge tone="muted">Skipped</StatusBadge>
+                        )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 max-w-md">
-                        {decision.reasoning || '-'}
+                      <td className="px-4 py-3 text-sm text-slate-600">
+                        {decision.reasoning || '–'}
                       </td>
                       <td className="px-4 py-3">{renderStateCell(decision.state)}</td>
                     </tr>
@@ -293,9 +309,9 @@ export default async function StockDetailPage({ params }: StockParams) {
               </table>
             </div>
           ) : (
-            <p className="text-gray-500">No AI decisions logged for this symbol yet.</p>
+            <p className="text-slate-500">No AI decisions logged for this symbol yet.</p>
           )}
-        </div>
+        </SurfaceCard>
       </div>
     </div>
   )

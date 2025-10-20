@@ -5,6 +5,8 @@
  */
 
 import { query } from '@/lib/db'
+import { SurfaceCard } from '@/components/ui/SurfaceCard'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 
 function parseJson(field: any) {
   if (!field) return null
@@ -19,24 +21,24 @@ function parseJson(field: any) {
 function renderState(rawState: any) {
   const state = parseJson(rawState)
   if (!state) {
-    return <span className="text-gray-400 text-xs">N/A</span>
+    return <span className="text-slate-400 text-xs">N/A</span>
   }
 
   return (
-    <div className="space-y-1 text-xs">
+    <div className="space-y-1 text-xs text-slate-600">
       {'rsi' in state && (
         <div>
-          RSI: <span className="font-semibold">{Number(state.rsi).toFixed(1)}</span>
+          RSI: <span className="font-semibold text-slate-800">{Number(state.rsi).toFixed(1)}</span>
         </div>
       )}
       {'price' in state && (
         <div>
-          Price: <span className="font-semibold">${Number(state.price).toFixed(2)}</span>
+          Price: <span className="font-semibold text-slate-800">${Number(state.price).toFixed(2)}</span>
         </div>
       )}
       {'position_qty' in state && (
         <div>
-          Position: <span className="font-semibold">{state.position_qty}</span>
+          Position: <span className="font-semibold text-slate-800">{state.position_qty}</span>
         </div>
       )}
     </div>
@@ -90,121 +92,147 @@ export default async function AgentPage() {
   const data = await getAgentData()
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold mb-8">Q-Learning Agent Stats</h1>
+    <div className="min-h-screen bg-brand-background p-6 md:p-10">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8">
+        <SurfaceCard
+          padding="lg"
+          className="bg-brand-gradient text-white"
+        >
+          <h1 className="text-3xl font-semibold text-brand-glow">Q-Learning Agent Stats</h1>
+          <p className="mt-2 text-sm text-white/80">
+            Inspect the model state snapshots, exploration cadence, and raw decision signals.
+          </p>
+        </SurfaceCard>
 
-      {/* Model States by Stock */}
-      <div className="bg-white shadow rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-bold mb-4">Agent Learning Progress</h2>
-        {data.modelStates.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left border-b">
-                  <th className="pb-2">Symbol</th>
-                  <th className="pb-2">Model Type</th>
-                  <th className="pb-2">Episodes</th>
-                  <th className="pb-2">Exploration Rate (ε)</th>
-                  <th className="pb-2">Avg Reward</th>
-                  <th className="pb-2">Last Updated</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.modelStates.map((state: any) => (
-                  <tr key={state.symbol} className="border-b hover:bg-gray-50">
-                    <td className="py-3 font-semibold">{state.symbol}</td>
-                    <td className="py-3">{state.model_type}</td>
-                    <td className="py-3">{state.total_episodes}</td>
-                    <td className="py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-24 bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full"
-                            style={{ width: `${parseFloat(state.exploration_rate) * 100}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm">{(parseFloat(state.exploration_rate) * 100).toFixed(1)}%</span>
-                      </div>
-                    </td>
-                    <td className={`py-3 ${parseFloat(state.avg_reward || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {state.avg_reward ? parseFloat(state.avg_reward).toFixed(2) : 'N/A'}
-                    </td>
-                    <td className="py-3 text-sm">{new Date(state.updated_at).toLocaleString()}</td>
+        <SurfaceCard className="overflow-hidden">
+          <h2 className="mb-4 text-xl font-semibold text-slate-800">Agent Learning Progress</h2>
+          {data.modelStates.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="border-b border-brand-muted bg-brand-muted/40">
+                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-3">Symbol</th>
+                    <th className="px-4 py-3">Model Type</th>
+                    <th className="px-4 py-3">Episodes</th>
+                    <th className="px-4 py-3">Exploration (ε)</th>
+                    <th className="px-4 py-3">Avg Reward</th>
+                    <th className="px-4 py-3">Last Updated</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-gray-500">No agent data yet. Agents are created on first trade.</p>
-        )}
-      </div>
-
-      {/* Recent Decision Logs */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-xl font-bold mb-4">Recent Decisions (Last 50)</h2>
-        {data.decisionLogs.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left border-b">
-                  <th className="pb-2">Time</th>
-                  <th className="pb-2">Symbol</th>
-                  <th className="pb-2">State</th>
-                  <th className="pb-2">Action</th>
-                  <th className="pb-2">Random?</th>
-                  <th className="pb-2">Q-Values</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.decisionLogs.map((log: any, idx: number) => (
-                  <tr key={idx} className="border-b hover:bg-gray-50">
-                    <td className="py-3 text-sm">{new Date(log.timestamp).toLocaleString()}</td>
-                    <td className="py-3 font-semibold">{log.symbol}</td>
-                    <td className="py-3 text-sm">{renderState(log.state)}</td>
-                    <td className={`py-3 font-semibold ${log.action === 'BUY' ? 'text-green-600' : log.action === 'SELL' ? 'text-red-600' : 'text-gray-600'}`}>
-                      {log.action}
-                    </td>
-                    <td className="py-3">
-                      {log.was_random ? (
-                        <span className="text-orange-600 text-sm">EXPLORE</span>
-                      ) : (
-                        <span className="text-blue-600 text-sm">EXPLOIT</span>
-                      )}
-                    </td>
-                    <td className="py-3 text-xs font-mono">
-                      {log.q_values ? (
-                        <div className="space-y-1">
-                          {Object.entries(log.q_values).map(([action, value]) => (
-                            <div key={action}>
-                              {action}: {typeof value === 'number' ? value.toFixed(3) : value}
+                </thead>
+                <tbody className="divide-y divide-brand-muted text-sm text-slate-600">
+                  {data.modelStates.map((state: any) => {
+                    const exploration = Number.parseFloat(String(state.exploration_rate ?? 0)) * 100
+                    const avgReward = state.avg_reward ? Number.parseFloat(String(state.avg_reward)) : null
+                    return (
+                      <tr key={state.symbol} className="odd:bg-brand-muted/30 transition-colors hover:bg-brand-muted/40">
+                        <td className="px-4 py-3 font-semibold text-slate-800">{state.symbol}</td>
+                        <td className="px-4 py-3">{state.model_type}</td>
+                        <td className="px-4 py-3">{state.total_episodes}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-24 rounded-full bg-brand-muted">
+                              <div
+                                className="h-full rounded-full bg-white"
+                                style={{ width: `${Math.min(Math.max(exploration, 0), 100)}%` }}
+                              />
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">N/A</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-gray-500">No decision logs yet. Decisions are logged when trading agent runs.</p>
-        )}
-      </div>
+                            <span className="text-xs font-semibold text-slate-500">{exploration.toFixed(1)}%</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {avgReward !== null ? (
+                            <StatusBadge tone={avgReward >= 0 ? 'positive' : 'negative'}>
+                              {avgReward.toFixed(2)}
+                            </StatusBadge>
+                          ) : (
+                            <span className="text-slate-400">N/A</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          {new Date(state.updated_at).toLocaleString()}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-slate-500">No agent data yet. Agents are created on the first trade for each symbol.</p>
+          )}
+        </SurfaceCard>
 
-      {/* Learning Explanation */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mt-8">
-        <h3 className="font-bold mb-2">How Q-Learning Works</h3>
-        <ul className="text-sm space-y-2 text-gray-700">
-          <li><strong>Exploration Rate (ε):</strong> Probability of taking random action. Starts at 100%, decays to 1%.</li>
-          <li><strong>Episodes:</strong> Number of trading sessions completed. More episodes = more learning.</li>
-          <li><strong>EXPLORE:</strong> Random action to discover new strategies.</li>
-          <li><strong>EXPLOIT:</strong> Use best known action based on Q-values.</li>
-          <li><strong>Q-Values:</strong> Expected reward for each action in a given state. Higher = better.</li>
-        </ul>
+        <SurfaceCard className="overflow-hidden">
+          <h2 className="mb-4 text-xl font-semibold text-slate-800">Recent Decisions (Last 50)</h2>
+          {data.decisionLogs.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="border-b border-brand-muted bg-brand-muted/40">
+                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-3">Time</th>
+                    <th className="px-4 py-3">Symbol</th>
+                    <th className="px-4 py-3">State</th>
+                    <th className="px-4 py-3">Action</th>
+                    <th className="px-4 py-3">Mode</th>
+                    <th className="px-4 py-3">Q-Values</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-brand-muted text-sm text-slate-600">
+                  {data.decisionLogs.map((log: any, idx: number) => (
+                    <tr key={idx} className="odd:bg-brand-muted/30 transition-colors hover:bg-brand-muted/40">
+                      <td className="px-4 py-3 text-xs">{new Date(log.timestamp).toLocaleString()}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-800">{log.symbol}</td>
+                      <td className="px-4 py-3 text-xs">{renderState(log.state)}</td>
+                      <td className="px-4 py-3">
+                        <StatusBadge tone={log.action === 'BUY' ? 'positive' : log.action === 'SELL' ? 'negative' : 'muted'}>
+                          {log.action}
+                        </StatusBadge>
+                      </td>
+                      <td className="px-4 py-3">
+                        {log.was_random ? (
+                          <StatusBadge tone="warning">Explore</StatusBadge>
+                        ) : (
+                          <StatusBadge tone="info">Exploit</StatusBadge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-[11px] font-mono">
+                        {log.q_values ? (
+                          <div className="space-y-1">
+                            {(Object.entries(log.q_values) as Array<[string, number | string]>).map(([action, value]) => (
+                              <div
+                                key={action}
+                                className={action === log.action ? 'font-semibold text-brand' : 'text-slate-500'}
+                              >
+                                {action}: {typeof value === 'number' ? value.toFixed(3) : value}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">N/A</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-slate-500">
+              No decision logs yet. Decisions appear once the trading agent begins executing.
+            </p>
+          )}
+        </SurfaceCard>
+
+        <SurfaceCard className="border border-brand-muted/80 bg-brand-muted/40">
+          <h3 className="text-lg font-semibold text-slate-800">How Q-Learning Works</h3>
+          <ul className="mt-3 space-y-2 text-sm text-slate-600">
+            <li><strong>Exploration Rate (ε):</strong> Starts high so the agent samples new actions, decays toward 1%.</li>
+            <li><strong>Episodes:</strong> Each simulated trading session. More episodes reinforce stable policies.</li>
+            <li><strong>EXPLORE:</strong> Random action to discover new edge cases.</li>
+            <li><strong>EXPLOIT:</strong> Choose the action with the highest learned Q-value.</li>
+            <li><strong>Q-Values:</strong> Expected future reward for each action in the current state.</li>
+          </ul>
+        </SurfaceCard>
       </div>
     </div>
   )

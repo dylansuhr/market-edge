@@ -6,6 +6,8 @@
 
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 const WORKFLOWS = ['market-data-etl.yml', 'trading-agent.yml', 'settlement.yml']
 const DEFAULT_LIMIT = 50
 

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { SurfaceCard } from '@/components/ui/SurfaceCard'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 
 const PAGE_SIZE = 50
 
@@ -111,7 +113,10 @@ export default function TradesPage() {
   return (
     <div className="min-h-screen bg-brand-background p-6 md:p-10">
       <div className="mx-auto flex max-w-7xl flex-col gap-8">
-        <div className="flex flex-col justify-between gap-4 rounded-3xl bg-brand-gradient p-8 text-white shadow-card md:flex-row md:items-center">
+        <SurfaceCard
+          padding="lg"
+          className="flex flex-col gap-4 bg-brand-gradient text-white md:flex-row md:items-center md:justify-between"
+        >
           <div>
             <h1 className="text-3xl font-semibold">Trade History</h1>
             <p className="mt-2 text-sm text-white/80">Raw trade log for the reinforcement-learning agent</p>
@@ -124,12 +129,13 @@ export default function TradesPage() {
           >
             {loading ? 'Refreshing...' : 'Refresh'}
           </button>
-        </div>
+        </SurfaceCard>
 
-        <form
-          onSubmit={applyFilters}
-          className="grid gap-4 rounded-3xl bg-brand-surface p-6 shadow-card md:grid-cols-4"
-        >
+        <SurfaceCard className="mb-6" padding="lg">
+          <form
+            onSubmit={applyFilters}
+            className="grid gap-4 md:grid-cols-4"
+          >
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400" htmlFor="symbol">
               Symbol
@@ -207,9 +213,10 @@ export default function TradesPage() {
               Apply Filters
             </button>
           </div>
-        </form>
+          </form>
+        </SurfaceCard>
 
-        <div className="overflow-hidden rounded-3xl bg-brand-surface shadow-card">
+        <SurfaceCard className="overflow-hidden">
           {error ? (
             <div className="p-8 text-center text-red-500">{error}</div>
           ) : loading && trades.length === 0 ? (
@@ -246,8 +253,10 @@ export default function TradesPage() {
                           </Link>
                           <div className="text-xs text-slate-400">{trade.name}</div>
                         </td>
-                        <td className={`px-4 py-3 font-semibold ${trade.action === 'BUY' ? 'text-green-600' : 'text-red-500'}`}>
-                          {trade.action}
+                        <td className="px-4 py-3">
+                          <StatusBadge tone={trade.action === 'BUY' ? 'positive' : 'negative'}>
+                            {trade.action}
+                          </StatusBadge>
                         </td>
                         <td className="px-4 py-3 text-sm">{trade.quantity}</td>
                         <td className="px-4 py-3 text-sm">${parseFloat(trade.price).toFixed(2)}</td>
@@ -276,7 +285,7 @@ export default function TradesPage() {
               )}
             </>
           )}
-        </div>
+        </SurfaceCard>
       </div>
     </div>
   )
