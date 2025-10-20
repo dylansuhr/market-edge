@@ -63,7 +63,15 @@ db-migrate:
 	@psql "$(DATABASE_URL)" -f infra/migrations/0004_remove_alpha_vantage_artifacts.sql
 	@echo "→ Applying 0005_market_value_views.sql..."
 	@psql "$(DATABASE_URL)" -f infra/migrations/0005_market_value_views.sql
+	@echo "→ Applying 0006_setup_readonly_user.sql..."
+	@psql "$(DATABASE_URL)" -f infra/migrations/0006_setup_readonly_user.sql
 	@echo "✓ All migrations applied successfully"
+
+# Setup read-only user (separate command for convenience)
+db-setup-readonly:
+	@echo "Setting up read-only database user..."
+	@psql "$(DATABASE_URL)" -f infra/migrations/0006_setup_readonly_user.sql
+	@echo "✓ Read-only user configured"
 
 # Test database connection
 db-ping:
