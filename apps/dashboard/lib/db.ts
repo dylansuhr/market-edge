@@ -7,11 +7,11 @@
 
 import { Pool } from 'pg'
 
-// Get database connection string (fallback to DATABASE_URL if readonly not set)
-const connectionString = process.env.DATABASE_READONLY_URL || process.env.DATABASE_URL
+// Get read-only database connection string (required)
+const connectionString = process.env.DATABASE_READONLY_URL
 
 if (!connectionString) {
-  throw new Error('DATABASE_READONLY_URL or DATABASE_URL environment variable is required')
+  throw new Error('DATABASE_READONLY_URL environment variable is required')
 }
 
 // Create connection pool (read-only access)
