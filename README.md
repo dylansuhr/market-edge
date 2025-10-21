@@ -198,6 +198,7 @@ The web dashboard (Next.js) provides real-time monitoring:
 - **Trades**: Complete trade history with P&L
 - **Performance**: Daily metrics and statistics
 - **Agent Stats**: Q-table size, exploration rate, decision logs
+- **Capital Discipline**: Cash usage, exposure mix, reward trend, and indicator freshness
 
 Access at: http://localhost:3001
 
