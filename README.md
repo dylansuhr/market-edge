@@ -9,7 +9,7 @@ An AI-powered day trading system using Q-Learning (reinforcement learning) to au
 ## Overview
 
 Market-Edge combines reinforcement learning with technical analysis to create an autonomous trading agent that:
-- Fetches real-time stock data every 5 minutes via Polygon.io API
+- Fetches near real-time stock data every 5 minutes via Alpaca Market Data API
 - Calculates technical indicators (RSI, SMA, VWAP) locally
 - Uses Q-Learning to make BUY/SELL/HOLD decisions
 - Executes paper trades to validate strategies without financial risk
@@ -33,7 +33,7 @@ Market-Edge combines reinforcement learning with technical analysis to create an
 - Python 3.10+
 - Node.js 18+
 - PostgreSQL 15+
-- [Polygon.io API key](https://polygon.io) (free tier available)
+- [Alpaca Market Data API key](https://app.alpaca.markets) (Basic plan is free)
 
 ### Installation
 
@@ -47,7 +47,7 @@ make install
 
 # Configure environment variables
 cp .env.example .env
-# Edit .env and add your DATABASE_URL and POLYGON_API_KEY
+# Edit .env and add your DATABASE_URL and APCA_API_KEY_ID/APCA_API_SECRET_KEY
 
 # Initialize database
 make db-migrate
@@ -76,7 +76,7 @@ make settle
 
 ```
 ┌─────────────┐
-│ Polygon.io  │ ← Stock market data API
+│ Alpaca Data │ ← Stock market data API
 └──────┬──────┘
        │
        ▼
@@ -115,7 +115,7 @@ make settle
 - **Backend**: Python 3.10+ (psycopg2, numpy, pandas)
 - **Frontend**: Next.js 14 with TypeScript and Tailwind CSS
 - **Database**: PostgreSQL 15
-- **Data Provider**: Polygon.io API
+- **Data Provider**: Alpaca Market Data API
 - **Automation**: GitHub Actions
 - **Testing**: pytest
 
@@ -126,7 +126,7 @@ market-edge/
 ├── apps/
 │   └── dashboard/          # Next.js web dashboard
 ├── packages/
-│   ├── providers/          # API clients (Polygon.io)
+│   ├── providers/          # API clients (Alpaca)
 │   ├── shared/             # Database & indicators
 │   └── models/             # Q-Learning agent & state
 ├── ops/scripts/            # Operational scripts
@@ -170,7 +170,8 @@ DATABASE_URL=postgresql://user:pass@host:port/market_edge
 DATABASE_READONLY_URL=postgresql://readonly:pass@host:port/market_edge
 
 # API
-POLYGON_API_KEY=your_key_here
+APCA_API_KEY_ID=your_key_here
+APCA_API_SECRET_KEY=your_secret_here
 
 # Trading
 SYMBOLS=AAPL,MSFT,GOOGL,TSLA,NVDA,SPY,QQQ,META,AMZN,JPM
@@ -207,7 +208,8 @@ GitHub Actions workflows handle automated operation:
 3. **Daily Settlement**: 4:05 PM ET to close all positions
 
 Configure secrets in GitHub repository settings:
-- `POLYGON_API_KEY`
+- `APCA_API_KEY_ID`
+- `APCA_API_SECRET_KEY`
 - `DATABASE_URL`
 
 ## Performance Expectations
@@ -274,8 +276,8 @@ pytest tests/test_ql_agent.py
 - Check exploration rate (if 1.0, agent is purely random)
 
 **API quota exceeded:**
-- Polygon.io free tier: 5 calls/min, 7,200/day
-- Reduce number of symbols or increase interval
+- Alpaca Market Data Basic: 200 calls/min, 10,000/day
+- Check workflow logs for HTTP 429; reduce symbol count or polling interval if needed
 
 **Dashboard shows no data:**
 - Run `make etl` manually to populate database
@@ -292,10 +294,10 @@ See `CLAUDE.md` for comprehensive troubleshooting guide.
 
 ## API Rate Limits
 
-Polygon.io free tier:
-- 5 API calls per minute
-- 7,200 calls per day
-- Current usage: ~780 calls/day (89% buffer)
+Alpaca Market Data Basic:
+- 200 API calls per minute
+- 10,000 calls per day
+- Current usage: ~780 calls/day (92% buffer)
 
 Technical indicators calculated locally to minimize API usage.
 
@@ -332,13 +334,13 @@ Academic use only. All rights reserved.
 
 ## Acknowledgments
 
-- **Data Provider**: [Polygon.io](https://polygon.io)
+- **Data Provider**: [Alpaca Market Data](https://app.alpaca.markets)
 - **RL Theory**: Sutton & Barto - "Reinforcement Learning: An Introduction"
 - **Architecture**: Inspired by SportsEdge project
 - **Course**: CS5100 - Foundations of AI, Northeastern University
 
 ---
 
-**Built with:** Python 3.10+, PostgreSQL 15, Q-Learning, Polygon.io API, Next.js 14
+**Built with:** Python 3.10+, PostgreSQL 15, Q-Learning, Alpaca Market Data API, Next.js 14
 **Status:** ✅ Core system complete, automated trading active
 **Last Updated:** October 2025

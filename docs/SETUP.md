@@ -10,7 +10,8 @@ This guide will help you set up GitHub Actions automation and run the dashboard.
 2. Navigate to **Settings → Secrets and variables → Actions**
 3. Add the following secrets:
 
-   - `POLYGON_API_KEY`: Your Polygon.io API key
+   - `APCA_API_KEY_ID`: Your Alpaca Market Data API key ID
+   - `APCA_API_SECRET_KEY`: Your Alpaca Market Data API secret
    - `DATABASE_URL`: Your Neon PostgreSQL connection string (write access)
 
 ### Workflows Created
@@ -160,9 +161,9 @@ EXPLORATION_DECAY=0.99   # Decay exploration faster
 
 ### API quota exceeded
 
-- Polygon.io free tier: 5 calls/min (7,200/day)
-- Current usage: ~780 calls/day
-- Check workflow logs for rate limit errors
+- Alpaca Market Data (Basic): 200 calls/min, 10,000/day
+- Current usage: ~780 calls/day (2 calls/min observed)
+- Check workflow logs for `429` responses; credentials include rate-limit headers
 
 ## 7. Production Deployment (Optional)
 

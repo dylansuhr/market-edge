@@ -5,7 +5,7 @@
 psycopg2-binary==2.9.9   # PostgreSQL adapter
 
 # HTTP requests
-requests==2.31.0          # API calls (Polygon.io)
+requests==2.31.0          # API calls (Alpaca Market Data)
 
 # Environment variables
 python-dotenv>=1.0.0      # Load .env files

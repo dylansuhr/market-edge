@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Market-Edge is an AI-powered day trading system using Q-Learning (reinforcement learning) to learn profitable trading strategies autonomously. It's an academic project (CS5100 - Foundations of AI) that:
-- Fetches real-time stock data every 5 minutes via Polygon.io API
+- Fetches near real-time stock data every 5 minutes via Alpaca Market Data API
 - Calculates technical indicators (RSI, SMA, VWAP) locally
 - Uses Q-Learning agent to make BUY/SELL/HOLD decisions
 - Executes paper trades (mock trades with $0 risk)
@@ -15,7 +15,7 @@ Market-Edge is an AI-powered day trading system using Q-Learning (reinforcement 
 - Backend: Python 3.10+ (RL agent, ETL, automation)
 - Frontend: Next.js 14 (dashboard on port 3001)
 - Database: PostgreSQL 15
-- Data Source: Polygon.io API (free tier: 5 calls/min, 7,200/day)
+- Data Source: Alpaca Market Data API (Basic plan: 200 calls/min, 10,000/day)
 - Automation: GitHub Actions
 
 ## Essential Commands
@@ -30,7 +30,7 @@ make db-ping      # Test database connection
 
 ### Daily Operations
 ```bash
-make etl          # Fetch market data from Polygon.io
+make etl          # Fetch market data from Alpaca Market Data
 make trade        # Run RL trading agent
 make settle       # Settle open positions (run at market close)
 make dashboard    # Start Next.js dashboard (localhost:3001)
@@ -70,7 +70,7 @@ pytest --cov                     # Run with coverage
 **Required:**
 - `DATABASE_URL` - PostgreSQL connection string (write access for ETL/trading scripts)
 - `DATABASE_READONLY_URL` - PostgreSQL connection string (read-only for dashboard)
-- `POLYGON_API_KEY` - API key from polygon.io (free tier available)
+- `APCA_API_KEY_ID` / `APCA_API_SECRET_KEY` - Alpaca Market Data API credentials
 
 **Configuration:**
 - `SYMBOLS` - Comma-separated stock symbols (default: AAPL,MSFT,GOOGL,TSLA,NVDA,SPY,QQQ,META,AMZN,JPM)
@@ -103,7 +103,7 @@ market-edge/
 │       └── lib/db.ts           # Database utilities (read-only)
 ├── packages/
 │   ├── providers/
-│   │   └── polygon_provider.py # Polygon.io API client
+│   │   └── alpaca_provider.py  # Alpaca Market Data API client
 │   ├── shared/shared/
 │   │   ├── db.py               # Database operations (all writes go through here)
 │   │   └── indicators.py       # Technical indicators (RSI, SMA, VWAP)
@@ -111,7 +111,7 @@ market-edge/
 │       ├── state.py            # Trading state representation (243 discrete states)
 │       └── ql_agent.py         # Q-Learning agent implementation
 ├── ops/scripts/
-│   ├── market_data_etl.py      # Fetch stock data from Polygon.io
+│   ├── market_data_etl.py      # Fetch stock data from Alpaca Market Data
 │   ├── rl_trading_agent.py     # RL agent trading logic
 │   └── settle_trades.py        # Close positions at end of day
 ├── infra/migrations/
@@ -124,7 +124,7 @@ market-edge/
 
 ### Data Flow
 ```
-Polygon.io API → ETL (market_data_etl.py) → PostgreSQL → RL Agent (rl_trading_agent.py) → Paper Trades → Dashboard
+Alpaca Market Data API → ETL (market_data_etl.py) → PostgreSQL → RL Agent (rl_trading_agent.py) → Paper Trades → Dashboard
    (every 5 min)           ↓
                   Calculate RSI/SMA/VWAP locally
                   (saves API calls - only 1 call per stock)
@@ -261,9 +261,9 @@ This reduces API calls by 75% (1 call per stock instead of 4).
 - **Settlement** (`.github/workflows/settlement.yml`): Daily at 4:05 PM ET
 
 **API Quota Management:**
-- Polygon.io free tier: 5 calls/min, 7,200 calls/day
+- Alpaca Market Data Basic: 200 calls/min, 10,000 calls/day
 - Current usage: ~780 calls/day (10 stocks × 1 call/run × 78 runs)
-- 89% safety margin (6,420 calls unused)
+- 92% safety margin (9,220 calls unused)
 
 ## Critical Rules
 
@@ -271,8 +271,8 @@ This reduces API calls by 75% (1 call per stock instead of 4).
 1. **NO real-money trading** - Paper trades only
 2. Dashboard uses `DATABASE_READONLY_URL` (separate read-only role)
 3. **NEVER log or commit API keys**
-4. Respect Polygon.io quota (5 calls/min max)
-5. Rate limit: 12s between requests when calling API directly
+4. Respect Alpaca quota (200 calls/min, 10,000/day); handle HTTP 429 with backoff
+5. Rate limiting handled via automatic retries—no fixed sleep required
 
 ### Code Quality
 1. **All database writes through `packages/shared/shared/db.py`** - No raw SQL in scripts
@@ -342,7 +342,7 @@ FROM stocks s;
 
 **"No quote data returned":**
 - Cause: API key invalid or quota exceeded
-- Fix: Check `POLYGON_API_KEY` in `.env`, verify quota at polygon.io dashboard
+- Fix: Check `APCA_API_KEY_ID` / `APCA_API_SECRET_KEY` in `.env`, verify usage on Alpaca dashboard
 
 **"Insufficient price data (X bars)":**
 - Cause: Not enough historical bars to calculate indicators (need 50+)
@@ -363,7 +363,7 @@ FROM stocks s;
 ## Project Status
 
 **Implemented:**
-- ✅ Polygon.io integration (migrated from Alpha Vantage)
+- ✅ Alpaca Market Data integration (migrated from Polygon.io)
 - ✅ Technical indicators (RSI, SMA, VWAP) calculated locally
 - ✅ Q-Learning agent with epsilon-greedy exploration
 - ✅ State representation (243 discrete states)
@@ -388,6 +388,6 @@ For more detailed information, see:
 
 ---
 
-**Built with:** Python 3.10+, PostgreSQL 15, Q-Learning, Polygon.io API, Next.js 14
+**Built with:** Python 3.10+, PostgreSQL 15, Q-Learning, Alpaca Market Data API, Next.js 14
 **License:** Academic use only
 **Status:** Core system complete, automated trading active

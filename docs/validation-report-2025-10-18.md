@@ -10,7 +10,7 @@
 ## Environment Checklist
 - [x] Python virtualenv activated (`.venv`)
 - [x] Dependencies match `requirements.txt`
-- [x] Environment variables (`DATABASE_URL`, `DATABASE_READONLY_URL`, `POLYGON_API_KEY`) present
+- [x] Environment variables (`DATABASE_URL`, `DATABASE_READONLY_URL`, `APCA_API_KEY_ID`, `APCA_API_SECRET_KEY`) present
 - [x] PostgreSQL reachable
 
 ### Environment Details
@@ -30,7 +30,8 @@ Installed Packages:
 Environment Variables:
   DATABASE_URL: SET ✅
   DATABASE_READONLY_URL: SET ✅
-  POLYGON_API_KEY: SET ✅
+  APCA_API_KEY_ID: SET ✅
+  APCA_API_SECRET_KEY: SET ✅
 ```
 
 ## Migrations Applied
@@ -39,7 +40,7 @@ Environment Variables:
 | `0001_init.sql` | ✅ Already Applied | Base schema with stocks, paper_trades, price_snapshots, technical_indicators, rl_model_states, trade_decisions_log tables |
 | `0002_bankroll_to_view.sql` | ✅ Already Applied | Converted paper_bankroll from table to VIEW, added active_positions and daily_pnl views |
 | `0003_fix_trade_lifecycle.md` | ⏭️ Skipped | Documentation-only migration (no SQL schema changes) |
-| `0004_remove_alpha_vantage_artifacts.sql` | ✅ Newly Applied | Dropped deprecated api_usage_log table (Polygon.io is now sole provider) |
+| `0004_remove_alpha_vantage_artifacts.sql` | ✅ Newly Applied | Dropped deprecated api_usage_log table (Alpaca Market Data is now sole provider) |
 
 ### Migration 0004 Output
 ```sql
@@ -47,7 +48,7 @@ Environment Variables:
 -- Date: 2025-10-18
 --
 -- Drops the unused api_usage_log table that tracked Alpha Vantage calls.
--- Polygon.io is now the sole market data provider.
+-- Alpaca Market Data is now the sole market data provider.
 
 DROP TABLE IF EXISTS api_usage_log;
 
@@ -139,7 +140,7 @@ MARKET DATA ETL
 Timestamp: 2025-10-18 14:17:26
 
 ✓ Market is open
-✓ Polygon.io provider initialized
+✓ Alpaca Market Data provider initialized
 
 📊 Processing 1 stocks...
 
@@ -274,7 +275,7 @@ pnl_pct = (pnl / (float(entry_price) * quantity)) * 100
 TRADE SETTLEMENT
 ============================================================
 Timestamp: 2025-10-18 14:20:28
-✓ Polygon.io provider initialized
+✓ Alpaca Market Data provider initialized
 
 📊 Open positions: 0
   No positions to settle

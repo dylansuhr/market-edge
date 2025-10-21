@@ -34,17 +34,17 @@ from shared.shared.db import (
     save_q_table
 )
 from models.models.ql_agent import QLearningAgent
-from providers.polygon_provider import PolygonProvider
+from providers.alpaca_provider import AlpacaProvider
 
 
-def get_closing_price(provider: PolygonProvider, symbol: str) -> float:
+def get_closing_price(provider: AlpacaProvider, symbol: str) -> float:
     """
     Get closing price for a stock.
 
-    Uses previous day's close (free tier compatible endpoint).
+    Uses latest completed daily bar from Alpaca Market Data.
 
     Args:
-        provider: Polygon.io provider
+        provider: Alpaca provider
         symbol: Stock ticker
 
     Returns:
@@ -54,7 +54,7 @@ def get_closing_price(provider: PolygonProvider, symbol: str) -> float:
         Exception: If price cannot be fetched
     """
     try:
-        # Use previous close endpoint (free tier compatible)
+        # Use latest daily bar (includes current day's close after market close)
         prev_close = provider.get_previous_close(symbol)
         return prev_close['close']
     except Exception as e:
@@ -62,14 +62,14 @@ def get_closing_price(provider: PolygonProvider, symbol: str) -> float:
 
 
 def settle_position(
-    provider: PolygonProvider,
+    provider: AlpacaProvider,
     position: Dict
 ) -> Dict:
     """
     Settle a single open position.
 
     Args:
-        provider: Polygon.io provider
+        provider: Alpaca provider
         position: Position dictionary from database
 
     Returns:
@@ -140,8 +140,8 @@ def main():
 
     # Initialize provider
     try:
-        provider = PolygonProvider()
-        print("✓ Polygon.io provider initialized")
+        provider = AlpacaProvider()
+        print("✓ Alpaca Market Data provider initialized")
     except Exception as e:
         print(f"✗ Failed to initialize provider: {str(e)}")
         sys.exit(1)

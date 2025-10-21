@@ -1,7 +1,7 @@
 """
 Market Data ETL (Extract, Transform, Load)
 
-Fetches stock market data from Polygon.io and loads into PostgreSQL.
+Fetches stock market data from Alpaca Market Data v2 and loads into PostgreSQL.
 
 This script runs every 5 minutes during market hours (9:30 AM - 4 PM ET)
 to keep price data fresh for the RL trading agent.
@@ -23,7 +23,7 @@ load_dotenv()
 # Add packages to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'packages'))
 
-from providers.polygon_provider import PolygonProvider
+from providers.alpaca_provider import AlpacaProvider
 from shared.shared.db import (
     upsert_stock,
     get_stock_id,
@@ -73,7 +73,7 @@ def is_market_open() -> bool:
 
 
 def fetch_and_store_stock_data(
-    provider: PolygonProvider,
+    provider: AlpacaProvider,
     symbol: str,
     name: str,
     exchange: str,
@@ -84,7 +84,7 @@ def fetch_and_store_stock_data(
     Fetch and store data for a single stock.
 
     Args:
-        provider: Polygon.io API provider
+        provider: Alpaca Market Data provider
         symbol: Stock ticker (e.g., 'AAPL')
         name: Company name
         exchange: Stock exchange
@@ -100,7 +100,7 @@ def fetch_and_store_stock_data(
     stock_id = upsert_stock(symbol, name, exchange, sector)
     print(f"  ✓ Stock ID: {stock_id}")
 
-    # 2. Fetch intraday prices from Polygon.io
+    # 2. Fetch intraday prices from Alpaca
     # NOTE: This is ONE API call that gets all OHLCV data
     try:
         prices = provider.get_intraday_prices(symbol, interval=interval, outputsize='compact')
@@ -225,8 +225,8 @@ def main():
 
     # Initialize provider
     try:
-        provider = PolygonProvider()
-        print("✓ Polygon.io provider initialized")
+        provider = AlpacaProvider()
+        print("✓ Alpaca Market Data provider initialized")
     except Exception as e:
         print(f"✗ Failed to initialize provider: {str(e)}")
         sys.exit(1)

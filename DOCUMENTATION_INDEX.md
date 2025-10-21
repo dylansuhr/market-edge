@@ -65,7 +65,7 @@ We've organized documentation into a clear, navigable structure with **3 core do
 **Audience:** DevOps, deployment engineers
 **Contents:**
 - GitHub Actions configuration (ETL, trading, settlement workflows)
-- Repository secrets setup (POLYGON_API_KEY, DATABASE_URL)
+- Repository secrets setup (APCA_API_KEY_ID, APCA_API_SECRET_KEY, DATABASE_URL)
 - Dashboard deployment
 - Manual workflow testing
 - System monitoring
@@ -134,7 +134,7 @@ We've organized documentation into a clear, navigable structure with **3 core do
 **Purpose:** Remove deprecated Alpha Vantage logging table
 **Contents:**
 - Drop `api_usage_log`
-- Migration rationale (Polygon.io is sole provider)
+- Migration rationale (Alpaca Market Data is sole provider)
 - Notes for applying the cleanup
 
 ---
@@ -142,7 +142,7 @@ We've organized documentation into a clear, navigable structure with **3 core do
 ### `ops/scripts/` Directory (Operational Scripts)
 
 #### [`ops/scripts/market_data_etl.py`](./ops/scripts/market_data_etl.py)
-**Purpose:** Fetch stock data from Polygon.io
+**Purpose:** Fetch stock data from Alpaca Market Data
 **Usage:** `python ops/scripts/market_data_etl.py --symbols AAPL,MSFT`
 
 ---

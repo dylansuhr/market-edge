@@ -28,7 +28,8 @@ jobs:
 
       - name: Run settlement script
         env:
-          POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
+          APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID }}
+          APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           python ops/scripts/settle_trades.py

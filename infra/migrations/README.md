@@ -194,7 +194,7 @@ Instead:
 
 ### Summary
 
-Dropped the unused `api_usage_log` table that tracked Alpha Vantage API consumption. Polygon.io is the only supported market data provider, so the logging table was dead weight.
+Dropped the unused `api_usage_log` table that tracked Alpha Vantage API consumption. Alpaca Market Data is the only supported provider now, so the logging table was dead weight.
 
 ### Changes
 
