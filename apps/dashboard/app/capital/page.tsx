@@ -52,6 +52,8 @@ type DecisionSummary = {
     action: string
     count: number
     avgBuyReward: number | null
+    executedBuyCount: number
+    executedBuyRewardSum: number
   }>
   buyRewards: Array<{ timestamp: string; reward: number; rollingAvg: number }>
 }
