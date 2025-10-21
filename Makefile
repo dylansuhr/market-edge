@@ -7,7 +7,7 @@ ifneq (,$(wildcard .env))
     export
 endif
 
-.PHONY: help install etl trade settle dashboard db-migrate db-ping verify clean
+.PHONY: help install etl trade settle dashboard db-migrate db-ping verify clean reset-sim
 
 # Default target
 help:
@@ -23,6 +23,7 @@ help:
 	@echo "  make db-ping      - Test database connection"
 	@echo "  make verify       - Verify system setup"
 	@echo "  make clean        - Clean temporary files"
+	@echo "  make reset-sim    - Reset trading data, reseed prices, run trading agent"
 
 # Install dependencies
 install:
@@ -105,3 +106,13 @@ clean:
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	find . -type d -name ".next" -exec rm -rf {} + 2>/dev/null || true
 	@echo "✓ Cleaned"
+
+# Reset simulation data and reseed market snapshots
+reset-sim:
+	@echo "Resetting simulation data..."
+	@bash -lc 'source .venv/bin/activate && set -a && source .env && set +a && psql "$$DATABASE_URL" -c "TRUNCATE TABLE trade_decisions_log, paper_trades, performance_metrics, rl_model_states, price_snapshots, technical_indicators RESTART IDENTITY CASCADE;"'
+	@echo "Reseeding market data via ETL..."
+	@bash -lc 'source .venv/bin/activate && set -a && source .env && set +a && python ops/scripts/market_data_etl.py --force'
+	@echo "Running trading agent once to initialize state..."
+	@bash -lc 'source .venv/bin/activate && set -a && source .env && set +a && python ops/scripts/rl_trading_agent.py'
+	@echo "✓ Simulation reset complete"

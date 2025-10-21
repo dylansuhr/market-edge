@@ -239,6 +239,7 @@ make etl            # Run ETL
 make trade          # Run trading agent
 make settle         # Settle positions
 make dashboard      # Start dashboard
+make reset-sim      # Reset trading tables, reseed data, run agent once
 
 # Development
 make clean          # Clean temporary files
