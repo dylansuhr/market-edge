@@ -199,6 +199,7 @@ class AlpacaProvider:
             "timeframe": timeframe,
             "limit": str(limit),
             "adjustment": "all",
+            "feed": "iex",
         }
         if from_date:
             params["start"] = from_date
@@ -282,6 +283,7 @@ class AlpacaProvider:
             "timeframe": "1Day",
             "limit": "2",
             "adjustment": "all",
+            "feed": "iex",
         }
         endpoint = f"/stocks/{symbol}/bars"
         data = self._make_request("GET", endpoint, params=params)
@@ -289,17 +291,20 @@ class AlpacaProvider:
 
         if not bars:
             raise Exception(f"No previous close data returned for {symbol}")
-
-        latest_bar = bars[-1]
+        # Alpaca returns bars sorted oldest → newest. We want the last *completed* session.
+        if len(bars) >= 2:
+            previous_bar = bars[-2]
+        else:
+            previous_bar = bars[0]
 
         return {
             "symbol": symbol,
-            "close": latest_bar["c"],
-            "high": latest_bar["h"],
-            "low": latest_bar["l"],
-            "open": latest_bar["o"],
-            "volume": latest_bar["v"],
-            "timestamp": self._normalize_timestamp(latest_bar["t"]).split(" ")[0],
+            "close": previous_bar["c"],
+            "high": previous_bar["h"],
+            "low": previous_bar["l"],
+            "open": previous_bar["o"],
+            "volume": previous_bar["v"],
+            "timestamp": self._normalize_timestamp(previous_bar["t"]).split(" ")[0],
         }
 
 
