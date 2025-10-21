@@ -9,83 +9,7 @@ import { query } from '@/lib/db'
 import { SurfaceCard } from '@/components/ui/SurfaceCard'
 import { MetricStat } from '@/components/ui/MetricStat'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-
-const WORKFLOW_LABELS: Record<string, string> = {
-  'market-data-etl.yml': 'Market Data ETL',
-  'trading-agent.yml': 'Trading Agent',
-  'settlement.yml': 'Trade Settlement'
-}
-
-type PipelineRun = {
-  workflow_file: string
-  label: string
-  latest: string | null
-  statusLabel: string
-  url: string | null
-}
-
-async function fetchPipelineStatus(): Promise<PipelineRun[]> {
-  try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3001')
-
-    const res = await fetch(`${baseUrl}/api/automation?workflow=all&limit=3`, {
-      cache: 'no-store'
-    })
-
-    const data = await res.json()
-    if (!res.ok) {
-      throw new Error(data?.error || `Automation API returned ${res.status}`)
-    }
-    const runs = Array.isArray(data.runs) ? data.runs : []
-
-    const grouped: Record<string, { latest: string | null; status: string; conclusion: string | null; url: string | null }> = {}
-
-    runs.forEach((run: any) => {
-      const file = run.workflow_file
-      if (!grouped[file]) {
-        grouped[file] = {
-          latest: run.updated_at || run.created_at || null,
-          status: run.status || 'unknown',
-          conclusion: run.conclusion || null,
-          url: run.html_url || null
-        }
-      }
-    })
-
-    return Object.keys(WORKFLOW_LABELS).map(file => {
-      const info = grouped[file]
-      let statusLabel = 'No runs yet'
-      if (info) {
-        if (info.status === 'in_progress') {
-          statusLabel = 'In Progress'
-        } else if (info.conclusion) {
-          statusLabel = info.conclusion.toUpperCase()
-        } else {
-          statusLabel = info.status || 'UNKNOWN'
-        }
-      }
-
-      return {
-        workflow_file: file,
-        label: WORKFLOW_LABELS[file] || file,
-        latest: info?.latest || null,
-        statusLabel,
-        url: info?.url || null
-      }
-    })
-  } catch (error) {
-    console.error('Failed to load pipeline status:', error)
-    return Object.keys(WORKFLOW_LABELS).map(file => ({
-      workflow_file: file,
-      label: WORKFLOW_LABELS[file] || file,
-      latest: null,
-      statusLabel: 'Unavailable',
-      url: null
-    }))
-  }
-}
+import CapitalPipelineStatus from '@/components/CapitalPipelineStatus'
 
 export const dynamic = 'force-dynamic' // Disable caching for real-time data
 
@@ -167,7 +91,6 @@ export default async function OverviewPage() {
     winning_trades: 0,
     win_rate: 0
   }
-  const automation = await fetchPipelineStatus()
 
   return (
     <div>
@@ -294,55 +217,7 @@ export default async function OverviewPage() {
       </SurfaceCard>
 
       {/* Pipeline Status */}
-      <SurfaceCard className="mb-8">
-        <h2 className="mb-4 text-xl font-semibold text-slate-800">Today&apos;s Pipeline</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {automation.map(run => {
-            const statusLower = run.statusLabel.toLowerCase()
-            const statusTone = statusLower.includes('progress')
-              ? 'text-amber-500'
-              : statusLower.includes('fail')
-              ? 'text-rose-500'
-              : statusLower.includes('success')
-              ? 'text-emerald-500'
-              : statusLower.includes('unavailable') || statusLower.includes('no runs')
-              ? 'text-slate-400'
-              : 'text-brand'
-
-            return (
-              <SurfaceCard key={run.workflow_file} padding="sm" className="border border-brand-muted/60 text-sm text-slate-600">
-                <div className="text-xs uppercase tracking-wide text-slate-400">{run.label}</div>
-                <div className="mt-2 text-base font-semibold text-slate-800">
-                  {run.latest ? new Date(run.latest).toLocaleString() : 'No runs yet'}
-                </div>
-                <StatusBadge tone={
-                  statusTone.includes('emerald')
-                    ? 'positive'
-                    : statusTone.includes('rose')
-                    ? 'negative'
-                    : statusTone.includes('amber')
-                    ? 'warning'
-                    : statusTone.includes('slate')
-                    ? 'muted'
-                    : 'default'
-                } className="mt-3">
-                  {run.statusLabel}
-                </StatusBadge>
-                {run.url && (
-                  <a
-                    href={run.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-3 inline-block text-xs font-medium text-brand hover:text-brand-light"
-                  >
-                    View on GitHub
-                  </a>
-                )}
-              </SurfaceCard>
-            )
-          })}
-        </div>
-      </SurfaceCard>
+      <CapitalPipelineStatus />
 
       {/* Recent Trades */}
       <SurfaceCard>

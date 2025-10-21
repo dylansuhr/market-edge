@@ -28,6 +28,7 @@ npm run dev
 - **/trades** - Complete trade history
 - **/performance** - Daily performance metrics
 - **/agent** - Q-Learning agent stats and decision logs
+- **/capital** - Capital discipline dashboard (cash buckets, exposure, rewards, indicator freshness)
 
 ## Architecture
 
