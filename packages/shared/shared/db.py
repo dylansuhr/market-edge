@@ -532,7 +532,7 @@ def get_paper_bankroll() -> Dict:
         if not result:
             # Return default starting bankroll
             return {
-                'balance': 10000.0,
+                'balance': 100000.0,
                 'total_trades': 0,
                 'win_rate': 0.0,
                 'total_pnl': 0.0,
