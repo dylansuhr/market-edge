@@ -84,7 +84,8 @@ verify:
 	@echo ""
 	@echo "1. Checking environment variables..."
 	@test -n "$(DATABASE_URL)" || (echo "✗ DATABASE_URL not set" && exit 1)
-	@test -n "$(POLYGON_API_KEY)" || (echo "✗ POLYGON_API_KEY not set" && exit 1)
+	@test -n "$(APCA_API_KEY_ID)" || (echo "✗ APCA_API_KEY_ID not set" && exit 1)
+	@test -n "$(APCA_API_SECRET_KEY)" || (echo "✗ APCA_API_SECRET_KEY not set" && exit 1)
 	@echo "✓ Environment variables set"
 	@echo ""
 	@echo "2. Checking database connection..."
