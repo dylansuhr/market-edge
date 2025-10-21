@@ -32,11 +32,11 @@ const pool = new Pool({
  * @param params - Query parameters (optional)
  * @returns Query results
  */
-export async function query(query: string, params?: any[]) {
+export async function query<T = any>(query: string, params?: any[]): Promise<T[]> {
   const client = await pool.connect()
   try {
     const result = await client.query(query, params)
-    return result.rows
+    return result.rows as T[]
   } finally {
     client.release()
   }
@@ -49,7 +49,7 @@ export async function query(query: string, params?: any[]) {
  * @param params - Query parameters (optional)
  * @returns Single row or null
  */
-export async function queryOne(sql: string, params?: any[]) {
-  const rows = await query(sql, params)
+export async function queryOne<T = any>(sql: string, params?: any[]): Promise<T | null> {
+  const rows = await query<T>(sql, params)
   return rows.length > 0 ? rows[0] : null
 }
