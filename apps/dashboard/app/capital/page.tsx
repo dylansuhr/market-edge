@@ -194,6 +194,8 @@ async function getCapitalMetrics(): Promise<CapitalMetrics> {
     action: row.action.toUpperCase(),
     count: Number(row.decisions || 0),
     avgBuyReward: row.avg_buy_reward !== null ? Number(row.avg_buy_reward) : null,
+    executedBuyCount: Number(row.executed_buy_count || 0),
+    executedBuyRewardSum: Number(row.executed_buy_reward_sum || 0),
   }))
 
   const buyRewardsRaw = buyRewardRows.map((row) => ({
@@ -254,8 +256,8 @@ export default async function CapitalDisciplinePage() {
 
     const actions = actionsByCash.get(row.cashBucket) || []
     const existingAction = actions.find((item) => item.action === row.action)
-    const executedCount = Number(row.executed_buy_count || 0)
-    const executedRewardSum = Number(row.executed_buy_reward_sum || 0)
+    const executedCount = row.executedBuyCount || 0
+    const executedRewardSum = row.executedBuyRewardSum || 0
     if (existingAction) {
       existingAction.count += row.count
       if (row.action === 'BUY') {
