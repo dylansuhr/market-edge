@@ -34,6 +34,7 @@ make etl          # Fetch market data from Alpaca Market Data
 make trade        # Run RL trading agent
 make settle       # Settle open positions (run at market close)
 make dashboard    # Start Next.js dashboard (localhost:3001)
+make reset-sim    # Reset trading tables, reseed prices, run agent once
 ```
 
 ### Development
