@@ -17,7 +17,7 @@ Converted `paper_bankroll` from a **table** (stored state) to a **view** (calcul
 
 **After:** Balance is calculated dynamically from `paper_trades`:
 ```sql
-balance = $10,000 - (total BUY) + (total SELL)
+balance = $100,000 - (total BUY) + (total SELL)
 ```
 
 **Result:** Single source of truth - `paper_trades` is authoritative, `paper_bankroll` view always correct by definition.
@@ -122,16 +122,16 @@ CREATE TABLE paper_bankroll (
 -- Calculate and insert current state
 INSERT INTO paper_bankroll (balance, total_trades, winning_trades, total_pnl, roi)
 SELECT
-    10000.00
+    100000.00
         - COALESCE((SELECT SUM(quantity * price) FROM paper_trades WHERE action = 'BUY'), 0)
         + COALESCE((SELECT SUM(quantity * price) FROM paper_trades WHERE action = 'SELL'), 0),
     COALESCE((SELECT COUNT(*) FROM paper_trades WHERE status = 'CLOSED'), 0),
     COALESCE((SELECT COUNT(*) FROM paper_trades WHERE status = 'CLOSED' AND profit_loss > 0), 0),
     COALESCE((SELECT SUM(profit_loss) FROM paper_trades WHERE status = 'CLOSED'), 0.00),
-    ((10000.00
+    ((100000.00
         - COALESCE((SELECT SUM(quantity * price) FROM paper_trades WHERE action = 'BUY'), 0)
         + COALESCE((SELECT SUM(quantity * price) FROM paper_trades WHERE action = 'SELL'), 0)
-    ) - 10000.00) / 10000.00;
+    ) - 100000.00) / 100000.00;
 ```
 
 Then restore the removed functions in `db.py`.

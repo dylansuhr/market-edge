@@ -153,14 +153,14 @@ async function getOverviewData() {
 export default async function OverviewPage() {
   const data = await getOverviewData()
   const metrics = data.netWorth || {
-    starting_cash: 10000,
-    cash_balance: 10000,
+    starting_cash: 100000,
+    cash_balance: 100000,
     open_positions_market_value: 0,
     open_positions_cost_basis: 0,
     total_unrealized_pnl: 0,
     realized_pnl: 0,
     total_pnl: 0,
-    net_worth: 10000,
+    net_worth: 100000,
     realized_roi: 0,
     total_roi: 0,
     total_trades: 0,

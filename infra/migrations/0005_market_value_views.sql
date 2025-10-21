@@ -33,7 +33,7 @@ WHERE ap.quantity > 0;
 -- Portfolio-level net worth summary
 CREATE OR REPLACE VIEW net_worth_summary AS
 SELECT
-    10000.00::numeric AS starting_cash,
+    100000.00::numeric AS starting_cash,
     pb.balance AS cash_balance,
     COALESCE(SUM(apm.market_value), 0) AS open_positions_market_value,
     COALESCE(SUM(apm.cost_basis), 0) AS open_positions_cost_basis,
@@ -43,8 +43,8 @@ SELECT
     pb.balance + COALESCE(SUM(apm.market_value), 0) AS net_worth,
     pb.roi AS realized_roi,
     CASE
-        WHEN 10000.00 = 0 THEN 0
-        ELSE ((pb.balance + COALESCE(SUM(apm.market_value), 0)) - 10000.00) / 10000.00
+        WHEN 100000.00 = 0 THEN 0
+        ELSE ((pb.balance + COALESCE(SUM(apm.market_value), 0)) - 100000.00) / 100000.00
     END AS total_roi,
     pb.total_trades,
     pb.winning_trades,

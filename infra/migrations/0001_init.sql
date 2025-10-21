@@ -121,9 +121,9 @@ CREATE TABLE IF NOT EXISTS paper_bankroll (
 
 -- Insert starting bankroll
 INSERT INTO paper_bankroll (balance, total_trades, winning_trades, total_pnl, roi)
-VALUES (10000.00, 0, 0, 0.00, 0.0000);
+VALUES (100000.00, 0, 0, 0.00, 0.0000);
 
-COMMENT ON TABLE paper_bankroll IS 'Paper trading virtual bankroll (starts at $10,000)';
+COMMENT ON TABLE paper_bankroll IS 'Paper trading virtual bankroll (starts at $100,000)';
 
 -- ============================================================================
 -- RL_MODEL_STATES TABLE

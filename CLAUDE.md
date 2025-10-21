@@ -75,8 +75,8 @@ pytest --cov                     # Run with coverage
 **Configuration:**
 - `SYMBOLS` - Comma-separated stock symbols (default: AAPL,MSFT,GOOGL,TSLA,NVDA,SPY,QQQ,META,AMZN,JPM)
 - `INTERVAL` - Intraday bar size (default: 5min)
-- `MAX_POSITION_SIZE` - Max shares per stock (default: 10)
-- `STARTING_CASH` - Virtual capital (default: 10000.00)
+- `MAX_POSITION_SIZE` - Max shares per stock (default: 25)
+- `STARTING_CASH` - Virtual capital (default: 100000.00)
 
 **RL Hyperparameters:**
 - `LEARNING_RATE` - Alpha (default: 0.1)
@@ -108,7 +108,7 @@ market-edge/
 │   │   ├── db.py               # Database operations (all writes go through here)
 │   │   └── indicators.py       # Technical indicators (RSI, SMA, VWAP)
 │   └── models/models/
-│       ├── state.py            # Trading state representation (243 discrete states)
+│       ├── state.py            # Trading state representation (2,916 discrete states)
 │       └── ql_agent.py         # Q-Learning agent implementation
 ├── ops/scripts/
 │   ├── market_data_etl.py      # Fetch stock data from Alpaca Market Data
@@ -154,12 +154,14 @@ Alpaca Market Data API → ETL (market_data_etl.py) → PostgreSQL → RL Agent 
 
 ### Q-Learning Implementation
 
-**State Space** (243 total states = 3^5):
+**State Space** (2,916 total states = 3^6 × 4):
 - RSI: OVERSOLD (<30) / NEUTRAL (30-70) / OVERBOUGHT (>70)
 - MA Position: BELOW / AT / ABOVE (price vs SMA_50)
 - VWAP Position: BELOW / AT / ABOVE (price vs VWAP)
 - Position Status: LONG (>0 shares) / FLAT (0) / SHORT (<0)
 - Price Momentum: UP / FLAT / DOWN (vs previous price)
+- Cash Availability: HIGH (≥70%), MEDIUM (30-70%), LOW (<30%) remaining bankroll
+- Portfolio Exposure: NONE (<5%), LIGHT (<50%), HEAVY (≤100%), OVEREXTENDED (>100%) deployed
 
 **Action Space:**
 - BUY: Purchase shares (up to MAX_POSITION_SIZE)
@@ -175,13 +177,13 @@ Q(s, a) ← Q(s, a) + α[R + γ * max_a' Q(s', a') - Q(s, a)]
 - **Updates happen immediately** after each action (not just on settlement)
 
 **Reward Function** (implemented in `ops/scripts/rl_trading_agent.py:calculate_reward()`):
-- **BUY (executed):** -0.1 (penalty for committing capital)
-- **SELL (executed):** realized_pnl (profit/loss from closing position)
-- **HOLD:** -0.01 (opportunity cost)
+- **BUY (executed):** Negative penalty scaled by cash bucket & exposure level (costlier when capital is scarce or portfolio is heavy)
+- **SELL (executed):** Realized P&L plus small bonus when freeing cash during low-liquidity or heavy-exposure states
+- **HOLD:** -0.01 baseline opportunity cost, with extra penalty when cash is low or exposure is heavy
 - **Not executed:** 0 (no penalty)
 
 **Learning Loop:**
-1. Agent observes state (RSI, MA, VWAP, position, momentum)
+1. Agent observes state (RSI, MA, VWAP, position, momentum, cash bucket, exposure bucket)
 2. Chooses action (ε-greedy: random with probability ε, best Q-value otherwise)
 3. Executes action → receives reward
 4. Updates Q(s,a) immediately using reward and next state
@@ -366,7 +368,7 @@ FROM stocks s;
 - ✅ Alpaca Market Data integration (migrated from Polygon.io)
 - ✅ Technical indicators (RSI, SMA, VWAP) calculated locally
 - ✅ Q-Learning agent with epsilon-greedy exploration
-- ✅ State representation (243 discrete states)
+- ✅ State representation (2,916 discrete states)
 - ✅ Paper trading with bankroll management
 - ✅ Database schema (11 tables, idempotent operations)
 - ✅ Automation scripts (ETL, trading, settlement)

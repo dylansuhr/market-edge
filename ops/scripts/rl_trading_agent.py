@@ -48,8 +48,8 @@ from shared.shared.db import (
 DEFAULT_SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'NVDA', 'SPY', 'QQQ', 'META', 'AMZN', 'JPM']
 
 # Trading parameters
-MAX_POSITION_SIZE = 10  # Max shares per stock
-STARTING_CASH = 10000.0  # Virtual starting capital
+MAX_POSITION_SIZE = 25  # Max shares per stock
+STARTING_CASH = 100000.0  # Virtual starting capital
 
 
 def load_or_create_agent(stock_id: int) -> QLearningAgent:
@@ -108,11 +108,19 @@ def get_current_state(symbol: str, stock_id: int) -> Tuple[TradingState, Dict]:
 
     # Get current position
     positions = get_active_positions()
+    bankroll = get_paper_bankroll()
+
+    cash_balance = float(bankroll['balance'])
+    total_exposure = 0.0
     position_qty = 0
+
     for pos in positions:
+        qty = float(pos['quantity'])
+        avg_price = float(pos['avg_entry_price'])
+        total_exposure += abs(qty) * avg_price
+
         if pos['stock_id'] == stock_id:
-            position_qty = pos['quantity']
-            break
+            position_qty = int(qty)
 
     # Current and previous prices
     current_price = prices[0]['close']  # Most recent
@@ -125,7 +133,10 @@ def get_current_state(symbol: str, stock_id: int) -> Tuple[TradingState, Dict]:
         sma=indicators['SMA_50'],
         vwap=indicators['VWAP'],
         position_quantity=position_qty,
-        prev_price=prev_price
+        prev_price=prev_price,
+        cash_available=cash_balance,
+        total_exposure=total_exposure,
+        starting_cash=STARTING_CASH
     )
 
     market_data = {
@@ -133,20 +144,25 @@ def get_current_state(symbol: str, stock_id: int) -> Tuple[TradingState, Dict]:
         'rsi': indicators['RSI'],
         'sma': indicators['SMA_50'],
         'vwap': indicators['VWAP'],
-        'position_qty': position_qty
+        'position_qty': position_qty,
+        'cash_balance': cash_balance,
+        'total_exposure': total_exposure,
+        'cash_bucket': state.cash_bucket,
+        'exposure_bucket': state.exposure_bucket,
+        'starting_cash': STARTING_CASH
     }
 
     return state, market_data
 
 
-def calculate_reward(action: str, executed: bool, realized_pnl: float) -> float:
+def calculate_reward(action: str, executed: bool, realized_pnl: float, state: TradingState) -> float:
     """
     Calculate reward for Q-learning based on action and outcome.
 
     Reward structure:
-    - BUY (executed): Small negative penalty for committing capital (-0.1)
-    - SELL (executed): Realized P&L (positive if profit, negative if loss)
-    - HOLD: Small penalty for inaction/opportunity cost (-0.01) - ALWAYS applies
+    - BUY (executed): Negative penalty scaled by cash bucket & exposure level
+    - SELL (executed): Realized P&L plus a bonus when freeing scarce capital
+    - HOLD: Baseline opportunity cost penalty (-0.01) with extra cost when overexposed
     - Not executed (BUY/SELL failed): No reward (0)
 
     Args:
@@ -157,20 +173,45 @@ def calculate_reward(action: str, executed: bool, realized_pnl: float) -> float:
     Returns:
         Reward value for Q-learning update
     """
+    cash_adjustments = {
+        'HIGH': 0.0,
+        'MEDIUM': -0.03,
+        'LOW': -0.06
+    }
+    exposure_adjustments = {
+        'NONE': 0.0,
+        'LIGHT': -0.02,
+        'HEAVY': -0.05,
+        'OVEREXTENDED': -0.08
+    }
+
     # HOLD penalty applies even if not "executed" (HOLD is always applicable)
     if action == 'HOLD':
-        return -0.01
+        penalty = -0.01
+        if state.cash_bucket == 'LOW':
+            penalty -= 0.01
+        if state.exposure_bucket in ('HEAVY', 'OVEREXTENDED'):
+            penalty -= 0.01
+        return penalty
 
     # For BUY/SELL, only reward if executed
     if not executed:
         return 0.0
 
     if action == 'BUY':
-        # Small penalty for committing capital
-        return -0.1
+        base_penalty = -0.02
+        penalty = base_penalty
+        penalty += cash_adjustments.get(state.cash_bucket, -0.05)
+        penalty += exposure_adjustments.get(state.exposure_bucket, -0.02)
+        return penalty
     elif action == 'SELL':
-        # Realized P&L is the reward
-        return realized_pnl
+        # Realized P&L is the reward with a bonus for freeing capital when constrained
+        bonus = 0.0
+        if state.cash_bucket == 'LOW':
+            bonus += 0.05
+        if state.exposure_bucket in ('HEAVY', 'OVEREXTENDED'):
+            bonus += 0.05
+        return realized_pnl + bonus
     else:
         return 0.0
 
@@ -215,7 +256,9 @@ def execute_action(
     reasoning_parts = [
         f"RSI={market_data['rsi']:.1f}",
         f"Price vs SMA: {((price - market_data['sma']) / market_data['sma'] * 100):+.2f}%",
-        f"Price vs VWAP: {((price - market_data['vwap']) / market_data['vwap'] * 100):+.2f}%"
+        f"Price vs VWAP: {((price - market_data['vwap']) / market_data['vwap'] * 100):+.2f}%",
+        f"Cash bucket={state.cash_bucket}",
+        f"Exposure={state.exposure_bucket}"
     ]
     if was_random:
         reasoning_parts.append("(EXPLORATION)")
@@ -290,7 +333,12 @@ def execute_action(
             'price': price,
             'sma': market_data['sma'],
             'vwap': market_data['vwap'],
-            'position_qty': position_qty
+            'position_qty': position_qty,
+            'cash_balance': market_data['cash_balance'],
+            'total_exposure': market_data['total_exposure'],
+            'cash_bucket': state.cash_bucket,
+            'exposure_bucket': state.exposure_bucket,
+            'starting_cash': market_data['starting_cash']
         }
         insert_decision_log(
             stock_id=stock_id,
@@ -307,7 +355,7 @@ def execute_action(
     # Q-LEARNING UPDATE: Learn from this action
     try:
         # Calculate reward based on action outcome
-        reward = calculate_reward(action, result['executed'], result['realized_pnl'])
+        reward = calculate_reward(action, result['executed'], result['realized_pnl'], state)
 
         # Get next state after action (current market state)
         next_state, next_market_data = get_current_state(symbol, stock_id)

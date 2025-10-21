@@ -61,7 +61,7 @@ def check_paper_bankroll_consistency():
         """)
         total_received = float(cur.fetchone()['total_received'])
 
-        expected_balance = 10000.00 - total_spent + total_received
+        expected_balance = 100000.00 - total_spent + total_received
 
         # Verify balance matches
         if abs(view_balance - expected_balance) < 0.01:  # Allow for rounding

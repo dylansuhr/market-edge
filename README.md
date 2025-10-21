@@ -19,8 +19,8 @@ Market-Edge combines reinforcement learning with technical analysis to create an
 
 ## Features
 
-- **Q-Learning Agent**: Tabular RL with epsilon-greedy exploration (243 discrete states)
-- **Paper Trading**: Mock trading with $10,000 virtual capital, zero risk
+- **Q-Learning Agent**: Tabular RL with epsilon-greedy exploration (2,916 discrete states)
+- **Paper Trading**: Mock trading with $100,000 virtual capital, zero risk
 - **Technical Indicators**: RSI, SMA, VWAP calculated locally to minimize API calls
 - **Automated Workflows**: GitHub Actions for ETL, trading, and settlement
 - **Real-time Dashboard**: Next.js web interface for monitoring performance
@@ -139,12 +139,14 @@ market-edge/
 
 ## Q-Learning Implementation
 
-### State Space (243 states)
+### State Space (2,916 states)
 - **RSI**: Oversold (<30) / Neutral (30-70) / Overbought (>70)
 - **Price vs SMA**: Below / At / Above
 - **Price vs VWAP**: Below / At / Above
 - **Position**: Long / Flat / Short
 - **Momentum**: Up / Flat / Down
+- **Cash Availability**: High (≥70%), Medium (30-70%), Low (<30%) of bankroll remaining
+- **Portfolio Exposure**: None (<5%), Light (<50%), Heavy (≤100%), Overextended (>100%) of bankroll deployed
 
 ### Action Space
 - **BUY**: Purchase shares (up to max position size)
@@ -175,8 +177,8 @@ APCA_API_SECRET_KEY=your_secret_here
 
 # Trading
 SYMBOLS=AAPL,MSFT,GOOGL,TSLA,NVDA,SPY,QQQ,META,AMZN,JPM
-MAX_POSITION_SIZE=10
-STARTING_CASH=10000.00
+MAX_POSITION_SIZE=25
+STARTING_CASH=100000.00
 
 # RL Parameters
 LEARNING_RATE=0.1

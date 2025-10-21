@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS paper_bankroll_archive AS
 SELECT * FROM paper_bankroll;
 */
 
+DROP VIEW IF EXISTS paper_bankroll CASCADE;
 DROP TABLE IF EXISTS paper_bankroll CASCADE;
 
 -- ============================================================================
@@ -24,7 +25,7 @@ SELECT
 
     -- BALANCE: Starting cash - spent on BUYs + received from SELLs
     (
-        10000.00
+        100000.00
         - COALESCE((SELECT SUM(quantity * price) FROM paper_trades WHERE action = 'BUY'), 0)
         + COALESCE((SELECT SUM(quantity * price) FROM paper_trades WHERE action = 'SELL'), 0)
     ) as balance,
@@ -41,11 +42,11 @@ SELECT
     -- ROI: (current balance - starting balance) / starting balance
     (
         (
-            10000.00
+            100000.00
             - COALESCE((SELECT SUM(quantity * price) FROM paper_trades WHERE action = 'BUY'), 0)
             + COALESCE((SELECT SUM(quantity * price) FROM paper_trades WHERE action = 'SELL'), 0)
-        ) - 10000.00
-    ) / 10000.00 as roi,
+        ) - 100000.00
+    ) / 100000.00 as roi,
 
     -- UPDATED_AT: Most recent trade timestamp
     COALESCE(
@@ -109,5 +110,5 @@ CREATE TABLE paper_bankroll (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 INSERT INTO paper_bankroll (balance, total_trades, winning_trades, total_pnl, roi)
-VALUES (10000.00, 0, 0, 0.00, 0.0000);
+VALUES (100000.00, 0, 0, 0.00, 0.0000);
 */

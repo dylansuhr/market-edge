@@ -38,7 +38,7 @@ We've organized documentation into a clear, navigable structure with **3 core do
   - Monorepo structure
   - Data flow diagrams
   - Database schema (11 tables + views)
-  - Q-Learning implementation (243 states, 3 actions)
+  - Q-Learning implementation (2,916 states, 3 actions)
   - Database layer functions (all idempotent)
 - **Critical architectural principles** (single source of truth, no derived data storage)
 - Common development tasks
