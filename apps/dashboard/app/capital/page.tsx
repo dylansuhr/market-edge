@@ -1,7 +1,7 @@
 /**
  * Capital Discipline Page
  *
- * Provides visibility into cash usage, portfolio exposure, and reward health.
+ * Provides visibility into cash usage, portfolio exposure, and indicator health.
  */
 
 import { query, queryOne } from '@/lib/db'
@@ -17,14 +17,7 @@ type DecisionMixRow = {
   exposure_bucket: string | null
   action: string
   decisions: string
-  avg_buy_reward: string | null
   executed_buy_count: string | null
-  executed_buy_reward_sum: string | null
-}
-
-type BuyRewardRow = {
-  timestamp: string
-  reward: string
 }
 
 type ExposureRow = {
@@ -51,11 +44,8 @@ type DecisionSummary = {
     exposureBucket: string
     action: string
     count: number
-    avgBuyReward: number | null
     executedBuyCount: number
-    executedBuyRewardSum: number
   }>
-  buyRewards: Array<{ timestamp: string; reward: number; rollingAvg: number }>
 }
 
 type ExposureSummary = {
@@ -92,51 +82,18 @@ function normalizeBucket(input: string | null, fallback: string) {
   return input.toUpperCase()
 }
 
-function computeRollingAverage(values: Array<{ timestamp: string; reward: number }>, window = 5) {
-  const result: Array<{ timestamp: string; reward: number; rollingAvg: number }> = []
-  const buffer: number[] = []
-
-  values.forEach((entry) => {
-    buffer.push(entry.reward)
-    if (buffer.length > window) {
-      buffer.shift()
-    }
-    const rollingAvg = buffer.reduce((acc, val) => acc + val, 0) / buffer.length
-    result.push({
-      timestamp: entry.timestamp,
-      reward: entry.reward,
-      rollingAvg,
-    })
-  })
-
-  return result
-}
-
 async function getCapitalMetrics(): Promise<CapitalMetrics> {
-  const [decisionRows, buyRewardRows, exposureRows, cashRow, indicatorRows] = await Promise.all([
+  const [decisionRows, exposureRows, cashRow, indicatorRows] = await Promise.all([
     query<DecisionMixRow>(`
       SELECT
         state->>'cash_bucket' AS cash_bucket,
         state->>'exposure_bucket' AS exposure_bucket,
         action,
         COUNT(*) AS decisions,
-        AVG(CASE WHEN action = 'BUY' AND was_executed THEN COALESCE(reward, 0) ELSE NULL END) AS avg_buy_reward,
-        SUM(CASE WHEN action = 'BUY' AND was_executed THEN 1 ELSE 0 END) AS executed_buy_count,
-        SUM(CASE WHEN action = 'BUY' AND was_executed THEN COALESCE(reward, 0) ELSE 0 END) AS executed_buy_reward_sum
+        SUM(CASE WHEN action = 'BUY' AND was_executed THEN 1 ELSE 0 END) AS executed_buy_count
       FROM trade_decisions_log
       WHERE timestamp::date = CURRENT_DATE
       GROUP BY 1, 2, 3
-    `),
-    query<BuyRewardRow>(`
-      SELECT
-        timestamp AT TIME ZONE 'UTC' AS timestamp,
-        reward
-      FROM trade_decisions_log
-      WHERE action = 'BUY'
-        AND was_executed = TRUE
-        AND reward IS NOT NULL
-        AND timestamp::date = CURRENT_DATE
-      ORDER BY timestamp ASC
     `),
     query<ExposureRow>(`
       SELECT
@@ -195,17 +152,8 @@ async function getCapitalMetrics(): Promise<CapitalMetrics> {
     exposureBucket: normalizeBucket(row.exposure_bucket, 'UNKNOWN'),
     action: row.action.toUpperCase(),
     count: Number(row.decisions || 0),
-    avgBuyReward: row.avg_buy_reward !== null ? Number(row.avg_buy_reward) : null,
     executedBuyCount: Number(row.executed_buy_count || 0),
-    executedBuyRewardSum: Number(row.executed_buy_reward_sum || 0),
   }))
-
-  const buyRewardsRaw = buyRewardRows.map((row) => ({
-    timestamp: row.timestamp,
-    reward: Number(row.reward),
-  }))
-
-  const rollingRewards = computeRollingAverage(buyRewardsRaw, 5)
 
   const exposureRow = exposureRows[0] || { total_cost_basis: '0', total_market_value: '0' }
   const cashBalance = cashRow ? Number(cashRow.balance || 0) : 0
@@ -232,7 +180,6 @@ async function getCapitalMetrics(): Promise<CapitalMetrics> {
       totalDecisions,
       cashBuckets,
       mixMatrix,
-      buyRewards: rollingRewards,
     },
     exposure: exposureSummary,
     indicators,
@@ -244,7 +191,7 @@ export default async function CapitalDisciplinePage() {
 
   const totalDecisions = metrics.decisions.totalDecisions
   const exposuresByCash = new Map<string, Array<{ bucket: string; count: number; percentage: number }>>()
-  const actionsByCash = new Map<string, Array<{ action: string; count: number; avgReward: number | null; executedCount: number; executedRewardSum: number }>>()
+  const actionsByCash = new Map<string, Array<{ action: string; count: number; executedCount: number }>>()
 
   metrics.decisions.mixMatrix.forEach((row) => {
     const exposures = exposuresByCash.get(row.cashBucket) || []
@@ -259,23 +206,16 @@ export default async function CapitalDisciplinePage() {
     const actions = actionsByCash.get(row.cashBucket) || []
     const existingAction = actions.find((item) => item.action === row.action)
     const executedCount = row.executedBuyCount || 0
-    const executedRewardSum = row.executedBuyRewardSum || 0
     if (existingAction) {
       existingAction.count += row.count
       if (row.action === 'BUY') {
         existingAction.executedCount += executedCount
-        existingAction.executedRewardSum += executedRewardSum
-        existingAction.avgReward = existingAction.executedCount > 0
-          ? existingAction.executedRewardSum / existingAction.executedCount
-          : null
       }
     } else {
       actions.push({
         action: row.action,
         count: row.count,
         executedCount,
-        executedRewardSum,
-        avgReward: row.action === 'BUY' && executedCount > 0 ? executedRewardSum / executedCount : null,
       })
     }
     actionsByCash.set(row.cashBucket, actions)
@@ -291,10 +231,6 @@ export default async function CapitalDisciplinePage() {
       entries.sort((a, b) => b.percentage - a.percentage),
     )
   })
-
-  const latestRollingReward = metrics.decisions.buyRewards.length > 0
-    ? metrics.decisions.buyRewards[metrics.decisions.buyRewards.length - 1].rollingAvg
-    : null
 
   const exposureRatioPct = metrics.exposure.exposureRatio * 100
   const marketValueRatioPct = metrics.exposure.marketValueRatio * 100
@@ -322,8 +258,6 @@ export default async function CapitalDisciplinePage() {
     .slice()
     .sort((a, b) => b.recentBars - a.recentBars)
 
-  const buyRewardSpark = metrics.decisions.buyRewards.slice(-20)
-
   return (
     <div className="min-h-screen bg-brand-background p-6 md:p-10">
       <div className="mx-auto flex max-w-6xl flex-col gap-8">
@@ -333,7 +267,7 @@ export default async function CapitalDisciplinePage() {
         >
           <h1 className="text-3xl font-semibold text-brand-glow">Capital Discipline</h1>
           <p className="mt-2 text-sm text-white/80">
-            Cash usage, exposure, and reward diagnostics from today&apos;s trading sessions.
+            Cash usage, exposure, and indicator diagnostics from today&apos;s trading sessions.
           </p>
           <p className="mt-4 text-xs text-white/70">
             Total decisions recorded today: {totalDecisions}
@@ -410,9 +344,9 @@ export default async function CapitalDisciplinePage() {
                           <div key={`${bucket.bucket}-${action.action}`} className="rounded-full bg-slate-100 px-3 py-1">
                             <span className="font-semibold text-slate-700">{action.action}</span>{' '}
                             <span>{action.count}</span>
-                            {action.action === 'BUY' && action.avgReward !== null && (
-                              <span className={action.avgReward >= 0 ? 'text-emerald-600' : 'text-rose-500'}>
-                                {' '}· Avg reward {action.avgReward.toFixed(2)} ({action.executedCount} exec)
+                            {action.action === 'BUY' && (
+                              <span className="text-slate-400">
+                                {' '}· Executed {action.executedCount}
                               </span>
                             )}
                           </div>
@@ -460,33 +394,6 @@ export default async function CapitalDisciplinePage() {
             </div>
           </SurfaceCard>
         </div>
-
-        <SurfaceCard className="space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-800">Buy Reward Trend</h2>
-            <p className="text-sm text-slate-500">
-              Rolling 5-decision average for executed BUY rewards (today).
-            </p>
-          </div>
-
-          {buyRewardSpark.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              Rewards will appear after the trading agent executes the first BUY decision today.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              <Sparkline data={buyRewardSpark} />
-              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                <StatusBadge tone={latestRollingReward !== null && latestRollingReward >= 0 ? 'positive' : 'warning'}>
-                  Latest rolling average: {latestRollingReward?.toFixed(2)}
-                </StatusBadge>
-                <span className="text-xs text-slate-400">
-                  Target range: -0.02 to -0.08 · adjust penalties if rolling average drifts below -0.10
-                </span>
-              </div>
-            </div>
-          )}
-        </SurfaceCard>
 
         <SurfaceCard className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -540,43 +447,5 @@ export default async function CapitalDisciplinePage() {
         <CapitalPipelineStatus />
       </div>
     </div>
-  )
-}
-
-type SparklineProps = {
-  data: Array<{ timestamp: string; reward: number; rollingAvg: number }>
-}
-
-function Sparkline({ data }: SparklineProps) {
-  if (data.length === 0) {
-    return null
-  }
-
-  const rewards = data.map((point) => point.rollingAvg)
-  const min = Math.min(...rewards, -0.2)
-  const max = Math.max(...rewards, 0.2)
-  const range = max - min || 1
-
-  const points = data.map((point, index) => {
-    const x = (index / (data.length - 1 || 1)) * 100
-    const y = ((max - point.rollingAvg) / range) * 100
-    return `${x},${y}`
-  }).join(' ')
-
-  return (
-    <svg viewBox="0 0 100 100" className="h-32 w-full rounded-xl border border-brand-muted/60 bg-white p-4">
-      <polyline
-        fill="none"
-        strokeWidth="2"
-        stroke="url(#rewardGradient)"
-        points={points}
-      />
-      <defs>
-        <linearGradient id="rewardGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#34d399" />
-          <stop offset="100%" stopColor="#f97316" />
-        </linearGradient>
-      </defs>
-    </svg>
   )
 }
