@@ -18,38 +18,46 @@ export function InfoTooltip({ content, position = 'top' }: InfoTooltipProps) {
   const [adjustedPosition, setAdjustedPosition] = useState(position)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const positionSetRef = useRef(false)
 
   useEffect(() => {
-    if (isVisible && tooltipRef.current && buttonRef.current) {
+    if (isVisible && tooltipRef.current && buttonRef.current && !positionSetRef.current) {
       const tooltip = tooltipRef.current
-      const button = buttonRef.current
       const rect = tooltip.getBoundingClientRect()
-      const buttonRect = button.getBoundingClientRect()
       const viewportWidth = window.innerWidth
       const viewportHeight = window.innerHeight
+      const margin = 8 // 8px margin from edges
 
       let newPosition = position
 
-      // Check if tooltip goes off right edge
-      if (rect.right > viewportWidth) {
+      // Check horizontal overflow
+      if (rect.right > viewportWidth - margin) {
         newPosition = 'left'
-      }
-      // Check if tooltip goes off left edge
-      else if (rect.left < 0) {
+      } else if (rect.left < margin) {
         newPosition = 'right'
       }
-      // Check if tooltip goes off top edge
-      if (rect.top < 0) {
-        newPosition = 'bottom'
-      }
-      // Check if tooltip goes off bottom edge
-      else if (rect.bottom > viewportHeight) {
-        newPosition = 'top'
+
+      // Check vertical overflow (prioritize horizontal fixes)
+      if (newPosition === position) {
+        if (rect.top < margin) {
+          newPosition = 'bottom'
+        } else if (rect.bottom > viewportHeight - margin) {
+          newPosition = 'top'
+        }
       }
 
       if (newPosition !== adjustedPosition) {
         setAdjustedPosition(newPosition)
       }
+
+      // Mark position as set to prevent re-calculation loop
+      positionSetRef.current = true
+    }
+
+    // Reset when tooltip is hidden
+    if (!isVisible) {
+      positionSetRef.current = false
+      setAdjustedPosition(position)
     }
   }, [isVisible, position, adjustedPosition])
 
