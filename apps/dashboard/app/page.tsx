@@ -107,7 +107,7 @@ export default async function OverviewPage() {
               <p className={`mt-1 text-3xl font-semibold ${parseFloat(metrics.realized_pnl) >= 0 ? 'text-emerald-100' : 'text-rose-100'} text-brand-glow`}>
                 ${parseFloat(metrics.realized_pnl).toFixed(2)}
               </p>
-              <p className="text-xs text-white/75">Total ROI {(parseFloat(metrics.total_roi) * 100).toFixed(2)}%</p>
+              <p className="text-xs text-white/75">Total ROI {parseFloat(metrics.total_roi).toFixed(2)}%</p>
             </div>
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
@@ -137,7 +137,7 @@ export default async function OverviewPage() {
         <SurfaceCard>
           <MetricStat
             label="Win Rate"
-            value={`${(parseFloat(metrics.win_rate || 0) * 100).toFixed(1)}%`}
+            value={`${parseFloat(metrics.win_rate || 0).toFixed(1)}%`}
             description={`${metrics.total_trades} trades`}
           />
         </SurfaceCard>
@@ -163,13 +163,13 @@ export default async function OverviewPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-gray-500 text-sm">Total ROI</h3>
           <p className={`text-2xl font-bold ${parseFloat(metrics.total_roi) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {(parseFloat(metrics.total_roi) * 100).toFixed(2)}%
+            {parseFloat(metrics.total_roi).toFixed(2)}%
           </p>
         </div>
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-gray-500 text-sm">Win Rate</h3>
           <p className="text-2xl font-bold">
-            {(parseFloat(metrics.win_rate || 0) * 100).toFixed(1)}%
+            {parseFloat(metrics.win_rate || 0).toFixed(1)}%
             <span className="text-sm text-gray-400 ml-2">
               ({metrics.total_trades} trades)
             </span>
