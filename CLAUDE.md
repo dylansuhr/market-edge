@@ -14,9 +14,10 @@ Market-Edge is an AI-powered day trading system using Q-Learning (reinforcement 
 **Tech Stack:**
 - Backend: Python 3.10+ (RL agent, ETL, automation)
 - Frontend: Next.js 14 (dashboard on port 3001)
-- Database: PostgreSQL 15
+- Database: PostgreSQL 15 (Neon serverless)
 - Data Source: Alpaca Market Data API (Basic plan: 200 calls/min, 10,000/day)
 - Automation: GitHub Actions
+- Deployment: Vercel (dashboard), GitHub Actions (trading automation)
 
 ## Essential Commands
 
@@ -69,9 +70,14 @@ pytest --cov                     # Run with coverage
 ## Environment Variables
 
 **Required:**
-- `DATABASE_URL` - PostgreSQL connection string (write access for ETL/trading scripts)
-- `DATABASE_READONLY_URL` - PostgreSQL connection string (read-only for dashboard)
+- `DATABASE_URL` - Neon PostgreSQL connection string with write access (for local development and GitHub Actions)
+- `DATABASE_READONLY_URL` - Neon PostgreSQL connection string with read-only access (for Vercel dashboard)
 - `APCA_API_KEY_ID` / `APCA_API_SECRET_KEY` - Alpaca Market Data API credentials
+
+**Database Access Patterns:**
+- Local `.env` file: Contains `DATABASE_URL` with `neondb_owner` role (full write access)
+- Vercel production env: Contains `DATABASE_READONLY_URL` with `market_edge_readonly` role (dashboard only)
+- GitHub Actions: Uses `DATABASE_URL` secret with write access (for ETL/trading/settlement)
 
 **Configuration:**
 - `SYMBOLS` - Comma-separated stock symbols (default: AAPL,MSFT,GOOGL,TSLA,NVDA,SPY,QQQ,META,AMZN,JPM)
@@ -149,9 +155,16 @@ Alpaca Market Data API → ETL (market_data_etl.py) → PostgreSQL → RL Agent 
 **Views:**
 - `active_positions` - Current open positions
 - `daily_pnl` - Daily profit/loss summary
+- `net_worth_summary` - Portfolio-level summary combining cash + open positions
 
 **Functions:**
 - `calculate_win_rate(stock_id)` - Calculate win rate for a stock
+
+**Migration Files:**
+- `0001_init.sql` - Initial schema (11 tables, views, functions)
+- `0002-0006_*.sql` - Various enhancements
+- `0007_fix_bankroll_view.sql` - Fixed ROI/win_rate to return percentages, removed winning_trades column
+- `0008_update_net_worth_view.sql` - Updated net_worth_summary to use new paper_bankroll schema
 
 ### Q-Learning Implementation
 
@@ -256,6 +269,39 @@ All indicators calculated locally in `packages/shared/shared/indicators.py`:
 
 This reduces API calls by 75% (1 call per stock instead of 4).
 
+### Deployment Architecture
+
+**Production Infrastructure:**
+- **Database:** Neon PostgreSQL (serverless, auto-scaling)
+  - Single database shared by all components
+  - Two access roles: `neondb_owner` (write) and `market_edge_readonly` (read-only)
+  - Connection pooling enabled (uses `-pooler.` endpoint)
+
+- **Dashboard:** Vercel (Next.js App Router)
+  - Auto-deploys on push to `main` branch
+  - Uses `DATABASE_READONLY_URL` for security
+  - Production URL: https://market-edge-git-main-dylan-suhrs-projects.vercel.app/
+  - Environment variables configured in Vercel dashboard
+
+- **Trading System:** GitHub Actions (Python scripts)
+  - Runs on GitHub's hosted runners (Ubuntu)
+  - Uses `DATABASE_URL` secret with write access
+  - Stores API keys in GitHub repository secrets
+  - No dedicated server costs (serverless automation)
+
+**Data Flow in Production:**
+```
+GitHub Actions (ETL) → Neon DB ← GitHub Actions (Trading/Settlement)
+                         ↓
+                    Vercel Dashboard (read-only)
+```
+
+**Deployment Workflow:**
+1. Developer pushes to `main` branch
+2. Vercel auto-deploys dashboard (code only, no migrations)
+3. Developer manually applies migrations to Neon DB (if schema changed)
+4. GitHub Actions continue running on schedule (no changes needed)
+
 ### Automation (GitHub Actions)
 
 **Workflows:**
@@ -322,6 +368,48 @@ EXPLORATION_DECAY=0.99     # Increase for faster shift to exploitation
 ```
 Then restart agent: `make trade`
 
+### Applying Database Migrations to Production
+
+**When to Apply Migrations:**
+- After creating new migration files in `infra/migrations/`
+- After pushing code to `main` that includes schema changes
+- When Vercel deployment shows database errors (e.g., "relation does not exist")
+
+**Steps:**
+1. Link local codebase to Vercel project (one-time setup):
+   ```bash
+   vercel link --yes
+   ```
+
+2. Pull production environment variables:
+   ```bash
+   vercel env pull .env.production.local --environment production
+   ```
+
+3. Apply migrations using local `.env` (which has write access):
+   ```bash
+   source .env
+   psql "$DATABASE_URL" -f infra/migrations/0007_fix_bankroll_view.sql
+   psql "$DATABASE_URL" -f infra/migrations/0008_update_net_worth_view.sql
+   ```
+
+4. Verify migrations succeeded:
+   ```bash
+   source .env
+   psql "$DATABASE_URL" -c "SELECT net_worth, total_roi, win_rate FROM net_worth_summary LIMIT 1;"
+   ```
+
+5. Check Vercel deployment status:
+   ```bash
+   vercel ls  # Look for "Ready" status on recent deployments
+   ```
+
+**Important Notes:**
+- Vercel auto-deploys code on push to `main` but does NOT run migrations
+- Always apply migrations manually to production database
+- Local `DATABASE_URL` has same credentials as production (Neon serverless uses pooled connections)
+- Dashboard uses `DATABASE_READONLY_URL` which cannot run migrations
+
 ### Viewing Recent Performance
 ```sql
 -- Recent trades
@@ -362,6 +450,18 @@ FROM stocks s;
 **Dashboard shows stale data:**
 - Cause: Using wrong DATABASE_URL
 - Fix: Ensure dashboard uses `DATABASE_READONLY_URL` environment variable
+
+**Vercel deployment errors ("relation does not exist"):**
+- Cause: Production database missing latest migrations (Vercel deploys code but doesn't run migrations)
+- Fix: Apply migrations manually to production database (see "Applying Database Migrations to Production")
+- Example errors:
+  - `relation "net_worth_summary" does not exist` → Run migration 0008
+  - `column "winning_trades" does not exist` → Run migration 0007
+
+**Database connection works locally but fails on Vercel:**
+- Cause: Vercel environment variables not configured
+- Fix: In Vercel dashboard, add `DATABASE_READONLY_URL` to environment variables for Production
+- Or pull locally: `vercel env pull .env.production.local --environment production`
 
 ## Project Status
 
