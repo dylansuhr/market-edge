@@ -457,7 +457,7 @@ def main():
 
     # Get current bankroll
     bankroll = get_paper_bankroll()
-    print(f"💰 Bankroll: ${bankroll['balance']:.2f} | ROI: {bankroll['roi']:.2%} | Win Rate: {bankroll['win_rate']:.1%}")
+    print(f"💰 Bankroll: ${bankroll['balance']:.2f} | ROI: {bankroll['roi']:.2f}% | Win Rate: {bankroll['win_rate']:.1f}%")
 
     # Trade each stock
     results = []
