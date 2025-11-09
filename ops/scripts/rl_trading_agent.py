@@ -166,7 +166,7 @@ def calculate_reward(action: str, executed: bool, realized_pnl: float, state: Tr
     Calculate reward for Q-learning based on action and outcome.
 
     Reward structure:
-    - BUY (executed): Negative penalty scaled by cash bucket & exposure level
+    - BUY (executed): Small penalty scaled by cash bucket & exposure level
     - SELL (executed): Realized P&L plus a bonus when freeing scarce capital
     - HOLD: Baseline opportunity cost penalty (-0.01) with extra cost when overexposed
     - Not executed (BUY/SELL failed): No reward (0)
@@ -175,20 +175,26 @@ def calculate_reward(action: str, executed: bool, realized_pnl: float, state: Tr
         action: 'BUY', 'SELL', or 'HOLD'
         executed: Whether action was actually executed
         realized_pnl: Profit/loss from trade (for SELL)
+        state: Current trading state (for capital management penalties)
 
     Returns:
         Reward value for Q-learning update
+
+    Note: After analysis, reduced BUY penalties to minimize asymmetry with SELL rewards.
+          Previous range: -0.02 to -0.16 was too harsh and biased agent against opening positions.
+          New range: -0.01 to -0.11 provides better balance.
     """
+    # Reduced penalties to minimize BUY/SELL asymmetry
     cash_adjustments = {
         'HIGH': 0.0,
-        'MEDIUM': -0.03,
-        'LOW': -0.06
+        'MEDIUM': -0.02,   # Was -0.03
+        'LOW': -0.05       # Was -0.06
     }
     exposure_adjustments = {
         'NONE': 0.0,
-        'LIGHT': -0.02,
-        'HEAVY': -0.05,
-        'OVEREXTENDED': -0.08
+        'LIGHT': -0.01,    # Was -0.02
+        'HEAVY': -0.04,    # Was -0.05
+        'OVEREXTENDED': -0.06  # Was -0.08
     }
 
     # HOLD penalty applies even if not "executed" (HOLD is always applicable)
@@ -205,10 +211,10 @@ def calculate_reward(action: str, executed: bool, realized_pnl: float, state: Tr
         return 0.0
 
     if action == 'BUY':
-        base_penalty = -0.02
+        base_penalty = -0.01  # Reduced from -0.02
         penalty = base_penalty
-        penalty += cash_adjustments.get(state.cash_bucket, -0.05)
-        penalty += exposure_adjustments.get(state.exposure_bucket, -0.02)
+        penalty += cash_adjustments.get(state.cash_bucket, -0.04)
+        penalty += exposure_adjustments.get(state.exposure_bucket, -0.01)
         return penalty
     elif action == 'SELL':
         # Realized P&L is the reward with a bonus for freeing capital when constrained
