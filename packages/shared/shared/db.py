@@ -510,19 +510,22 @@ def get_paper_bankroll() -> Dict:
         {
             'balance': 10500.50,
             'total_trades': 47,
-            'win_rate': 0.54,
+            'win_rate': 54.0,  # Percentage (54%)
             'total_pnl': 500.50,
-            'roi': 0.05
+            'roi': 5.0  # Percentage (5%)
         }
+
+    Note: After migration 0007, ROI and win_rate are returned as percentages
+          from the VIEW (already multiplied by 100).
     """
     with get_cursor(commit=False) as cur:
         cur.execute("""
             SELECT
                 balance,
                 total_trades,
-                winning_trades,
                 total_pnl,
-                roi
+                roi,
+                win_rate
             FROM paper_bankroll
             ORDER BY updated_at DESC
             LIMIT 1
@@ -542,9 +545,9 @@ def get_paper_bankroll() -> Dict:
         return {
             'balance': float(result['balance']),
             'total_trades': result['total_trades'],
-            'win_rate': float(result['winning_trades']) / max(result['total_trades'], 1),
             'total_pnl': float(result['total_pnl']),
-            'roi': float(result['roi'])
+            'roi': float(result['roi']),  # Already a percentage from VIEW
+            'win_rate': float(result['win_rate'])  # Already a percentage from VIEW
         }
 
 
@@ -793,4 +796,4 @@ if __name__ == '__main__':
     # Test get_paper_bankroll
     print("\nTesting get_paper_bankroll...")
     bankroll = get_paper_bankroll()
-    print(f"✓ Current bankroll: ${bankroll['balance']:.2f} (ROI: {bankroll['roi']:.2%})")
+    print(f"✓ Current bankroll: ${bankroll['balance']:.2f} (ROI: {bankroll['roi']:.2f}%)")
