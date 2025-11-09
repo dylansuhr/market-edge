@@ -5,6 +5,9 @@
  */
 
 import { query } from '@/lib/db'
+import { formatCurrency, formatPercent } from '@/lib/format'
+import { tooltips } from '@/lib/tooltips'
+import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { SurfaceCard } from '@/components/ui/SurfaceCard'
 import { MetricStat } from '@/components/ui/MetricStat'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -55,20 +58,23 @@ export default async function PerformancePage() {
             <div className="mt-6 grid gap-4 md:grid-cols-3">
               <MetricStat
                 label={`Latest Session · ${latest.date}`}
-                value={latestPnl !== null ? `$${latestPnl.toFixed(2)}` : '–'}
+                value={latestPnl !== null ? formatCurrency(latestPnl) : '–'}
                 description="Total P&L"
                 tone={latestPnl !== null ? (latestPnl >= 0 ? 'positive' : 'negative') : 'muted'}
+                tooltip={tooltips.totalPnL}
               />
               <MetricStat
                 label="Win Rate"
                 value={latestWinRate !== null ? `${latestWinRate.toFixed(1)}%` : '–'}
                 description={`${latest.total_trades} trades`}
+                tooltip={tooltips.winRate}
               />
               <MetricStat
                 label="Sharpe Ratio"
                 value={latest.sharpe_ratio ? parseFloat(latest.sharpe_ratio).toFixed(2) : '–'}
                 description={latest.max_drawdown ? `Max drawdown ${(parseFloat(latest.max_drawdown) * 100).toFixed(1)}%` : undefined}
                 tone="muted"
+                tooltip={tooltips.sharpeRatio}
               />
             </div>
           ) : (
@@ -86,14 +92,32 @@ export default async function PerformancePage() {
                 <thead className="border-b border-brand-muted bg-brand-muted/40">
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Trades</th>
+                    <th className="px-4 py-3 flex items-center">
+                      Trades
+                      <InfoTooltip content={tooltips.totalTrades} position="right" />
+                    </th>
                     <th className="px-4 py-3">Wins</th>
                     <th className="px-4 py-3">Losses</th>
-                    <th className="px-4 py-3">Win Rate</th>
-                    <th className="px-4 py-3">Total P&L</th>
-                    <th className="px-4 py-3">Avg Win</th>
-                    <th className="px-4 py-3">Avg Loss</th>
-                    <th className="px-4 py-3">Sharpe Ratio</th>
+                    <th className="px-4 py-3 flex items-center">
+                      Win Rate
+                      <InfoTooltip content={tooltips.winRate} position="right" />
+                    </th>
+                    <th className="px-4 py-3 flex items-center">
+                      Total P&L
+                      <InfoTooltip content={tooltips.totalPnL} position="right" />
+                    </th>
+                    <th className="px-4 py-3 flex items-center">
+                      Avg Win
+                      <InfoTooltip content={tooltips.avgWin} position="right" />
+                    </th>
+                    <th className="px-4 py-3 flex items-center">
+                      Avg Loss
+                      <InfoTooltip content={tooltips.avgLoss} position="right" />
+                    </th>
+                    <th className="px-4 py-3 flex items-center">
+                      Sharpe Ratio
+                      <InfoTooltip content={tooltips.sharpeRatio} position="right" />
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-muted text-sm text-slate-600">
@@ -103,20 +127,20 @@ export default async function PerformancePage() {
                     return (
                       <tr key={metric.date} className="odd:bg-brand-muted/30 transition-colors hover:bg-brand-muted/40">
                         <td className="px-4 py-3 font-semibold text-slate-800">{metric.date}</td>
-                        <td className="px-4 py-3">{metric.total_trades}</td>
-                        <td className="px-4 py-3 text-emerald-600">{metric.winning_trades}</td>
-                        <td className="px-4 py-3 text-rose-500">{metric.losing_trades}</td>
-                        <td className="px-4 py-3">{winRate.toFixed(1)}%</td>
+                        <td className="px-4 py-3">{metric.total_trades.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-emerald-600">{metric.winning_trades.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-rose-500">{metric.losing_trades.toLocaleString()}</td>
+                        <td className="px-4 py-3">{formatPercent(winRate)}</td>
                         <td className="px-4 py-3">
                           <StatusBadge tone={pnl >= 0 ? 'positive' : 'negative'} className="font-semibold">
-                            ${pnl.toFixed(2)}
+                            {formatCurrency(pnl)}
                           </StatusBadge>
                         </td>
                         <td className="px-4 py-3 text-emerald-600">
-                          {metric.avg_win ? `$${parseFloat(metric.avg_win).toFixed(2)}` : '–'}
+                          {metric.avg_win ? formatCurrency(parseFloat(metric.avg_win)) : '–'}
                         </td>
                         <td className="px-4 py-3 text-rose-500">
-                          {metric.avg_loss ? `$${parseFloat(metric.avg_loss).toFixed(2)}` : '–'}
+                          {metric.avg_loss ? formatCurrency(parseFloat(metric.avg_loss)) : '–'}
                         </td>
                         <td className="px-4 py-3">
                           {metric.sharpe_ratio ? parseFloat(metric.sharpe_ratio).toFixed(2) : '–'}
