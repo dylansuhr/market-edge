@@ -31,7 +31,8 @@ from shared.shared.db import (
     get_paper_bankroll,
     get_recent_prices,
     load_q_table,
-    save_q_table
+    save_q_table,
+    get_db_connection
 )
 from models.models.ql_agent import QLearningAgent
 from providers.alpaca_provider import AlpacaProvider
@@ -131,6 +132,73 @@ def settle_position(
         }
 
 
+def decay_all_agents():
+    """
+    Decay exploration rate for ALL stock agents at end of day.
+
+    CRITICAL FIX: Previously, finish_episode() was only called when
+    positions existed at settlement. This meant exploration rate never
+    decayed if all positions were closed during market hours.
+
+    Now we ensure EVERY stock's agent gets exploration decay EVERY day,
+    regardless of position status.
+    """
+    print("\n" + "=" * 60)
+    print("DECAYING EXPLORATION RATES (ALL STOCKS)")
+    print("=" * 60)
+
+    try:
+        # Get all stocks from database
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT stock_id, symbol
+            FROM stocks
+            WHERE symbol != '...'
+            ORDER BY symbol
+        """)
+        all_stocks = cur.fetchall()
+        conn.close()
+
+        print(f"Processing {len(all_stocks)} stocks...")
+
+        decayed_count = 0
+        skipped_count = 0
+
+        for stock_id, symbol in all_stocks:
+            try:
+                q_table = load_q_table(stock_id)
+                if q_table:
+                    agent = QLearningAgent.load(q_table)
+                    old_epsilon = agent.exploration_rate
+
+                    # Decay exploration rate (increments episode counter)
+                    agent.finish_episode()
+                    save_q_table(stock_id, agent.save())
+
+                    new_epsilon = agent.exploration_rate
+                    episodes = agent.total_episodes
+
+                    print(f"  [{symbol}] ε: {old_epsilon:.4f} → {new_epsilon:.4f} (episode {episodes})")
+                    decayed_count += 1
+                else:
+                    print(f"  [{symbol}] No Q-table found (agent not initialized yet)")
+                    skipped_count += 1
+
+            except Exception as e:
+                print(f"  [{symbol}] ⚠️ Error: {str(e)}")
+                skipped_count += 1
+
+        print(f"\n✓ Decayed: {decayed_count} stocks")
+        if skipped_count > 0:
+            print(f"⚠ Skipped: {skipped_count} stocks")
+
+    except Exception as e:
+        print(f"✗ Failed to decay exploration rates: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+
 def main():
     """Main settlement execution."""
     print("=" * 60)
@@ -150,44 +218,50 @@ def main():
     positions = get_active_positions()
     print(f"\n📊 Open positions: {len(positions)}")
 
+    # SETTLEMENT: Close any open positions at market close price
     if not positions:
-        print("  No positions to settle")
+        print("  No positions to settle (all closed during market hours)")
+    else:
+
+        # Get current bankroll
+        bankroll_before = get_paper_bankroll()
+        print(f"💰 Bankroll before: ${bankroll_before['balance']:.2f}")
+
+        # Settle each position
+        results = []
+        for position in positions:
+            result = settle_position(provider, position)
+            results.append(result)
+
+        # Calculate total P&L
+        total_pnl = sum(r['pnl'] for r in results if r['success'])
+        winning_trades = sum(1 for r in results if r['success'] and r['pnl'] > 0)
+        total_settled = sum(1 for r in results if r['success'])
+
+        # Bankroll is automatically updated via paper_bankroll VIEW (no manual update needed)
+        # Balance calculated from: starting_cash - BUY_total + SELL_total
+        new_balance = get_paper_bankroll()['balance']
+
+        # Summary
         print("\n" + "=" * 60)
-        print("SETTLEMENT COMPLETE (no positions)")
+        print("SETTLEMENT SUMMARY")
+        print(f"  Positions settled: {total_settled}/{len(positions)}")
+        print(f"  Winning trades: {winning_trades}/{total_settled}")
+        print(f"  Total P&L: ${total_pnl:+.2f}")
+        print(f"  Bankroll after: ${new_balance:.2f}")
+
+        if total_settled > 0:
+            win_rate = (winning_trades / total_settled) * 100
+            print(f"  Win rate: {win_rate:.1f}%")
         print("=" * 60)
-        return
 
-    # Get current bankroll
-    bankroll_before = get_paper_bankroll()
-    print(f"💰 Bankroll before: ${bankroll_before['balance']:.2f}")
+    # CRITICAL: Decay exploration for ALL stocks (not just those with positions)
+    # This ensures learning progresses even when positions close during market hours
+    decay_all_agents()
 
-    # Settle each position
-    results = []
-    for position in positions:
-        result = settle_position(provider, position)
-        results.append(result)
-
-    # Calculate total P&L
-    total_pnl = sum(r['pnl'] for r in results if r['success'])
-    winning_trades = sum(1 for r in results if r['success'] and r['pnl'] > 0)
-    total_settled = sum(1 for r in results if r['success'])
-
-    # Bankroll is automatically updated via paper_bankroll VIEW (no manual update needed)
-    # Balance calculated from: starting_cash - BUY_total + SELL_total
-    new_balance = get_paper_bankroll()['balance']
-
-    # Summary
+    # Final summary
     print("\n" + "=" * 60)
     print("SETTLEMENT COMPLETE")
-    print(f"  Positions settled: {total_settled}/{len(positions)}")
-    print(f"  Winning trades: {winning_trades}/{total_settled}")
-    print(f"  Total P&L: ${total_pnl:+.2f}")
-    print(f"  Bankroll after: ${new_balance:.2f}")
-
-    if total_settled > 0:
-        win_rate = (winning_trades / total_settled) * 100
-        print(f"  Win rate: {win_rate:.1f}%")
-
     print("=" * 60)
 
 
