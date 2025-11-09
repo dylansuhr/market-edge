@@ -92,8 +92,8 @@ export function InfoTooltip({ content, position = 'top' }: InfoTooltipProps) {
 
       {isVisible && (
         <div ref={tooltipRef} className={`absolute z-50 ${positionClasses[adjustedPosition]} pointer-events-none`}>
-          <div className="bg-slate-800 text-white rounded-lg px-4 py-3 min-w-64 max-w-sm shadow-lg normal-case whitespace-normal">
-            <p className="text-sm leading-relaxed normal-case">{content}</p>
+          <div className="bg-slate-800 text-white rounded-lg px-4 py-3 min-w-64 max-w-sm shadow-lg normal-case whitespace-normal" style={{ fontSize: '0.875rem', lineHeight: '1.25rem' }}>
+            <p className="normal-case" style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>{content}</p>
           </div>
           <div className={`absolute w-0 h-0 border-4 ${arrowClasses[adjustedPosition]}`} />
         </div>
