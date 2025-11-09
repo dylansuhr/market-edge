@@ -6,6 +6,7 @@
 
 import Link from 'next/link'
 import { query } from '@/lib/db'
+import { formatCurrency, formatPercent } from '@/lib/format'
 import { SurfaceCard } from '@/components/ui/SurfaceCard'
 import { MetricStat } from '@/components/ui/MetricStat'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -99,31 +100,31 @@ export default async function OverviewPage() {
           <div className="flex flex-wrap items-end justify-between gap-6">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-white/70">Portfolio value</p>
-              <h2 className="mt-3 text-5xl font-semibold text-brand-glow">${parseFloat(metrics.net_worth).toFixed(2)}</h2>
-              <p className="mt-4 text-sm text-white/80">Starting cash ${parseFloat(metrics.starting_cash).toFixed(2)} · Total P&amp;L ${parseFloat(metrics.total_pnl).toFixed(2)}</p>
+              <h2 className="mt-3 text-5xl font-semibold text-brand-glow">{formatCurrency(metrics.net_worth)}</h2>
+              <p className="mt-4 text-sm text-white/80">Starting cash {formatCurrency(metrics.starting_cash)} · Total P&amp;L {formatCurrency(metrics.total_pnl)}</p>
             </div>
             <div className="rounded-2xl bg-white/15 px-6 py-5 text-right shadow-card">
               <p className="text-xs uppercase tracking-wide text-white/70">Realized P&amp;L</p>
               <p className={`mt-1 text-3xl font-semibold ${parseFloat(metrics.realized_pnl) >= 0 ? 'text-emerald-100' : 'text-rose-100'} text-brand-glow`}>
-                ${parseFloat(metrics.realized_pnl).toFixed(2)}
+                {formatCurrency(metrics.realized_pnl)}
               </p>
-              <p className="text-xs text-white/75">Total ROI {parseFloat(metrics.total_roi).toFixed(2)}%</p>
+              <p className="text-xs text-white/75">Total ROI {formatPercent(metrics.total_roi, 2)}</p>
             </div>
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
-            <span className="brand-pill bg-white/15 text-white">Cash ${parseFloat(metrics.cash_balance).toFixed(2)}</span>
-            <span className="brand-pill bg-white/15 text-white">Unrealized ${parseFloat(metrics.total_unrealized_pnl).toFixed(2)}</span>
-            <span className="brand-pill bg-white/15 text-white">Trades {metrics.total_trades}</span>
+            <span className="brand-pill bg-white/15 text-white">Cash {formatCurrency(metrics.cash_balance)}</span>
+            <span className="brand-pill bg-white/15 text-white">Unrealized {formatCurrency(metrics.total_unrealized_pnl)}</span>
+            <span className="brand-pill bg-white/15 text-white">Trades {metrics.total_trades.toLocaleString()}</span>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4">
           <SurfaceCard className="border border-brand-muted">
-            <MetricStat label="Cash Balance" value={`$${parseFloat(metrics.cash_balance).toFixed(2)}`} />
+            <MetricStat label="Cash Balance" value={formatCurrency(metrics.cash_balance)} />
           </SurfaceCard>
           <SurfaceCard className="border border-brand-muted">
             <MetricStat
               label="Unrealized P&L"
-              value={`$${parseFloat(metrics.total_unrealized_pnl).toFixed(2)}`}
+              value={formatCurrency(metrics.total_unrealized_pnl)}
               tone={parseFloat(metrics.total_unrealized_pnl) >= 0 ? 'positive' : 'negative'}
             />
           </SurfaceCard>
@@ -132,17 +133,17 @@ export default async function OverviewPage() {
 
       <div className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-3">
         <SurfaceCard>
-          <MetricStat label="Open Positions Value" value={`$${parseFloat(metrics.open_positions_market_value).toFixed(2)}`} />
+          <MetricStat label="Open Positions Value" value={formatCurrency(metrics.open_positions_market_value)} />
         </SurfaceCard>
         <SurfaceCard>
           <MetricStat
             label="Win Rate"
-            value={`${parseFloat(metrics.win_rate || 0).toFixed(1)}%`}
-            description={`${metrics.total_trades} trades`}
+            value={formatPercent(metrics.win_rate || 0)}
+            description={`${metrics.total_trades.toLocaleString()} trades`}
           />
         </SurfaceCard>
         <SurfaceCard>
-          <MetricStat label="Total Trades" value={metrics.total_trades} />
+          <MetricStat label="Total Trades" value={metrics.total_trades.toLocaleString()} />
         </SurfaceCard>
       </div>
 
@@ -151,27 +152,27 @@ export default async function OverviewPage() {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-gray-500 text-sm">Realized P&amp;L</h3>
           <p className={`text-2xl font-bold ${parseFloat(metrics.realized_pnl) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            ${parseFloat(metrics.realized_pnl).toFixed(2)}
+            {formatCurrency(metrics.realized_pnl)}
           </p>
         </div>
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-gray-500 text-sm">Total P&amp;L</h3>
           <p className={`text-2xl font-bold ${parseFloat(metrics.total_pnl) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            ${parseFloat(metrics.total_pnl).toFixed(2)}
+            {formatCurrency(metrics.total_pnl)}
           </p>
         </div>
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-gray-500 text-sm">Total ROI</h3>
           <p className={`text-2xl font-bold ${parseFloat(metrics.total_roi) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {parseFloat(metrics.total_roi).toFixed(2)}%
+            {formatPercent(metrics.total_roi, 2)}
           </p>
         </div>
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-gray-500 text-sm">Win Rate</h3>
           <p className="text-2xl font-bold">
-            {parseFloat(metrics.win_rate || 0).toFixed(1)}%
+            {formatPercent(metrics.win_rate || 0)}
             <span className="text-sm text-gray-400 ml-2">
-              ({metrics.total_trades} trades)
+              ({metrics.total_trades.toLocaleString()} trades)
             </span>
           </p>
         </div>
@@ -201,11 +202,11 @@ export default async function OverviewPage() {
                     </Link>
                   </td>
                   <td className="py-3">{pos.quantity}</td>
-                  <td className="py-3">${parseFloat(pos.avg_price).toFixed(2)}</td>
-                  <td className="py-3">${parseFloat(pos.current_price).toFixed(2)}</td>
-                  <td className="py-3">${parseFloat(pos.market_value).toFixed(2)}</td>
+                  <td className="py-3">{formatCurrency(pos.avg_price)}</td>
+                  <td className="py-3">{formatCurrency(pos.current_price)}</td>
+                  <td className="py-3">{formatCurrency(pos.market_value)}</td>
                   <td className={`py-3 font-semibold ${parseFloat(pos.unrealized_pnl) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                    ${parseFloat(pos.unrealized_pnl).toFixed(2)} ({parseFloat(pos.unrealized_pnl_pct).toFixed(2)}%)
+                    {formatCurrency(pos.unrealized_pnl)} ({formatPercent(pos.unrealized_pnl_pct, 2)})
                   </td>
                 </tr>
               ))}
@@ -247,9 +248,9 @@ export default async function OverviewPage() {
                     {trade.action}
                   </td>
                   <td className="py-3">{trade.quantity}</td>
-                  <td className="py-3">${parseFloat(trade.price).toFixed(2)}</td>
+                  <td className="py-3">{formatCurrency(trade.price)}</td>
                   <td className={`py-3 font-semibold ${parseFloat(trade.pnl || 0) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                    {trade.pnl ? `$${parseFloat(trade.pnl).toFixed(2)}` : '-'}
+                    {trade.pnl ? formatCurrency(trade.pnl) : '-'}
                   </td>
                 </tr>
               ))}

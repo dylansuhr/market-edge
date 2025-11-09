@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { formatCurrency } from '@/lib/format'
 import { SurfaceCard } from '@/components/ui/SurfaceCard'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 
@@ -259,9 +260,9 @@ export default function TradesPage() {
                           </StatusBadge>
                         </td>
                         <td className="px-4 py-3 text-sm">{trade.quantity}</td>
-                        <td className="px-4 py-3 text-sm">${parseFloat(trade.price).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm">{formatCurrency(trade.price)}</td>
                         <td className={`px-4 py-3 text-sm font-semibold ${parseFloat(trade.profit_loss || '0') >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                          {trade.profit_loss ? `$${parseFloat(trade.profit_loss).toFixed(2)}` : '-'}
+                          {trade.profit_loss ? formatCurrency(trade.profit_loss) : '-'}
                         </td>
                         <td className="px-4 py-3 text-sm">{trade.strategy || '-'}</td>
                         <td className="px-4 py-3 text-sm text-slate-600 max-w-md">
