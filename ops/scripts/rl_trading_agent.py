@@ -71,13 +71,19 @@ def load_or_create_agent(stock_id: int) -> QLearningAgent:
         agent = QLearningAgent.load(q_table)
         return agent
     else:
-        # Create new agent
+        # Create new agent with hyperparameters from environment
+        learning_rate = float(os.getenv('LEARNING_RATE', '0.1'))
+        discount_factor = float(os.getenv('DISCOUNT_FACTOR', '0.95'))
+        exploration_rate = float(os.getenv('EXPLORATION_RATE', '1.0'))
+        exploration_decay = float(os.getenv('EXPLORATION_DECAY', '0.99'))
+        min_exploration = float(os.getenv('MIN_EXPLORATION', '0.01'))
+
         agent = QLearningAgent(
-            learning_rate=0.1,
-            discount_factor=0.95,
-            exploration_rate=1.0,  # Start with high exploration
-            exploration_decay=0.995,
-            min_exploration=0.01
+            learning_rate=learning_rate,
+            discount_factor=discount_factor,
+            exploration_rate=exploration_rate,
+            exploration_decay=exploration_decay,
+            min_exploration=min_exploration
         )
         return agent
 
