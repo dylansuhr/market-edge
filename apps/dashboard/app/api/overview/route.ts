@@ -17,10 +17,9 @@ export async function GET() {
       SELECT
         balance,
         total_trades,
-        winning_trades,
         total_pnl,
         roi,
-        CASE WHEN total_trades > 0 THEN CAST(winning_trades AS NUMERIC) / total_trades ELSE 0 END as win_rate
+        win_rate
       FROM paper_bankroll
       ORDER BY updated_at DESC
       LIMIT 1
