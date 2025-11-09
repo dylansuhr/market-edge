@@ -5,6 +5,7 @@
  */
 
 import { query, queryOne } from '@/lib/db'
+import { formatCurrency, formatPercent } from '@/lib/format'
 import { SurfaceCard } from '@/components/ui/SurfaceCard'
 import { MetricStat } from '@/components/ui/MetricStat'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -313,7 +314,7 @@ export default async function CapitalDisciplinePage() {
                           Cash: {bucket.bucket}
                         </div>
                         <div className="text-xs text-slate-500">
-                          {bucket.count} decisions · {bucket.percentage.toFixed(1)}%
+                          {bucket.count} decisions · {formatPercent(bucket.percentage)}
                         </div>
                       </div>
 
@@ -334,7 +335,7 @@ export default async function CapitalDisciplinePage() {
                             <span className={`h-2 w-2 rounded-full ${exposureBucketPalette[exposure.bucket] || 'bg-slate-400'}`} />
                             <span className="font-semibold">{exposure.bucket}</span>
                             <span>{exposure.count}</span>
-                            <span className="text-slate-400">{exposure.percentage.toFixed(1)}%</span>
+                            <span className="text-slate-400">{formatPercent(exposure.percentage)}</span>
                           </div>
                         ))}
                       </div>
@@ -366,19 +367,19 @@ export default async function CapitalDisciplinePage() {
             </div>
             <MetricStat
               label="Cash Balance"
-              value={`$${metrics.exposure.cashBalance.toFixed(2)}`}
+              value={formatCurrency(metrics.exposure.cashBalance)}
               description="Current cash available"
             />
             <MetricStat
               label="Cost Basis Deployed"
-              value={`$${metrics.exposure.totalCostBasis.toFixed(2)}`}
-              description={`${(metrics.exposure.exposureRatio * 100).toFixed(1)}% of cash`}
+              value={formatCurrency(metrics.exposure.totalCostBasis)}
+              description={`${formatPercent(metrics.exposure.exposureRatio * 100)} of cash`}
               tone={exposureMetricTone}
             />
             <MetricStat
               label="Market Value Exposure"
-              value={`$${metrics.exposure.totalMarketValue.toFixed(2)}`}
-              description={`${marketValueRatioPct.toFixed(1)}% of cash`}
+              value={formatCurrency(metrics.exposure.totalMarketValue)}
+              description={`${formatPercent(marketValueRatioPct)} of cash`}
               tone={exposureMetricTone}
             />
             <div className="space-y-2 text-xs text-slate-500">
