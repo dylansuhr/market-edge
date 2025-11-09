@@ -46,8 +46,8 @@ export function InfoTooltip({ content, position = 'top' }: InfoTooltipProps) {
 
       {isVisible && (
         <div className={`absolute z-50 ${positionClasses[position]} pointer-events-none`}>
-          <div className="bg-slate-800 text-white text-xs rounded-lg px-3 py-2 max-w-xs shadow-lg">
-            <p className="leading-relaxed">{content}</p>
+          <div className="bg-slate-800 text-white text-sm rounded-lg px-4 py-3 w-80 shadow-lg normal-case">
+            <p className="leading-relaxed normal-case">{content}</p>
           </div>
           <div className={`absolute w-0 h-0 border-4 ${arrowClasses[position]}`} />
         </div>
