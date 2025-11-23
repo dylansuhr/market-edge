@@ -20,6 +20,7 @@ export async function GET() {
         rms.model_type,
         rms.hyperparameters->>'total_episodes' as total_episodes,
         rms.hyperparameters->>'exploration_rate' as exploration_rate,
+        rms.hyperparameters->>'exploration_decay' as exploration_decay,
         rms.hyperparameters->>'avg_reward' as avg_reward,
         rms.updated_at
       FROM rl_model_states rms

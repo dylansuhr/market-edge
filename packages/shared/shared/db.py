@@ -583,6 +583,8 @@ def save_q_table(stock_id: int, agent_data: Dict):
         'learning_rate': agent_data.get('learning_rate', 0.1),
         'discount_factor': agent_data.get('discount_factor', 0.95),
         'exploration_rate': agent_data.get('exploration_rate', 1.0),
+        'exploration_decay': agent_data.get('exploration_decay', 0.99),
+        'min_exploration': agent_data.get('min_exploration', 0.01),
         'total_episodes': total_episodes,
         'total_rewards': total_rewards,
         'avg_reward': round(avg_reward, 4)  # Add avg_reward for dashboard
@@ -647,6 +649,8 @@ def load_q_table(stock_id: int) -> Optional[Dict]:
             'learning_rate': hyperparams.get('learning_rate', 0.1),
             'discount_factor': hyperparams.get('discount_factor', 0.95),
             'exploration_rate': hyperparams.get('exploration_rate', 1.0),
+            'exploration_decay': hyperparams.get('exploration_decay', 0.99),
+            'min_exploration': hyperparams.get('min_exploration', 0.01),
             'total_episodes': hyperparams.get('total_episodes', 0),
             'total_rewards': hyperparams.get('total_rewards', 0.0)
         }

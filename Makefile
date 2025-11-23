@@ -116,3 +116,7 @@ reset-sim:
 	@echo "Running trading agent once to initialize state..."
 	@bash -lc 'source .venv/bin/activate && set -a && source .env && set +a && python ops/scripts/rl_trading_agent.py'
 	@echo "✓ Simulation reset complete"
+
+# Exploration monitoring report
+report-exploration:
+	@bash -lc 'source .venv/bin/activate && set -a && source .env && set +a && python ops/scripts/report_exploration_metrics.py --days $${DAYS:-3}'

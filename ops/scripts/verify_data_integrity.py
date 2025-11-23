@@ -10,6 +10,7 @@ Usage:
 
 import sys
 import os
+import json
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -31,7 +32,7 @@ def check_paper_bankroll_consistency():
 
     with get_cursor(commit=False) as cur:
         # Get balance from view
-        cur.execute("SELECT balance, total_trades, winning_trades, total_pnl, roi FROM paper_bankroll")
+        cur.execute("SELECT balance, total_trades, total_pnl, roi, win_rate FROM paper_bankroll")
         result = cur.fetchone()
 
         if not result:
@@ -40,9 +41,9 @@ def check_paper_bankroll_consistency():
 
         view_balance = float(result['balance'])
         view_total_trades = result['total_trades']
-        view_winning_trades = result['winning_trades']
         view_total_pnl = float(result['total_pnl'])
         view_roi = float(result['roi'])
+        view_win_rate = float(result['win_rate'])
 
         # Calculate balance manually from trades
         cur.execute("""
@@ -83,7 +84,25 @@ def check_paper_bankroll_consistency():
             print(f"  ✗ Total trades mismatch: {view_total_trades} vs {expected_total_trades}")
             return False
 
-        print(f"  ✓ ROI: {view_roi:.4%}")
+        # Verify win rate aligns with manual calculation
+        cur.execute("""
+            SELECT
+                COUNT(*) FILTER (WHERE status = 'CLOSED' AND profit_loss > 0) AS wins,
+                COUNT(*) FILTER (WHERE status = 'CLOSED') AS closed
+            FROM paper_trades
+        """)
+        win_row = cur.fetchone()
+        wins = win_row['wins']
+        closed = win_row['closed']
+        expected_win_rate = (wins / closed * 100) if closed else 0.0
+
+        if abs(expected_win_rate - view_win_rate) <= 0.1:
+            print(f"  ✓ Win rate correct: {view_win_rate:.2f}%")
+        else:
+            print(f"  ✗ Win rate mismatch: {view_win_rate:.2f}% vs expected {expected_win_rate:.2f}%")
+            return False
+
+        print(f"  ✓ ROI: {view_roi:.2f}%")
         print(f"  ✓ Total P&L: ${view_total_pnl:.2f}")
 
     return True
@@ -126,34 +145,53 @@ def check_q_tables():
     print("\n[3/5] Checking Q-table persistence...")
 
     with get_cursor(commit=False) as cur:
-        # Get stocks with trades
         cur.execute("""
-            SELECT DISTINCT s.stock_id, s.symbol
+            SELECT
+                s.stock_id,
+                s.symbol,
+                rms.q_table,
+                rms.hyperparameters,
+                COALESCE((
+                    SELECT COUNT(*) FROM trade_decisions_log tdl
+                    WHERE tdl.stock_id = s.stock_id
+                ), 0) AS decision_count
             FROM stocks s
-            JOIN paper_trades pt ON pt.stock_id = s.stock_id
+            LEFT JOIN rl_model_states rms
+                ON rms.stock_id = s.stock_id
+                AND rms.model_type = 'Q_LEARNING'
+            WHERE EXISTS (
+                SELECT 1 FROM paper_trades pt WHERE pt.stock_id = s.stock_id
+            )
         """)
-        stocks_with_trades = cur.fetchall()
+        rows = cur.fetchall()
 
-        if not stocks_with_trades:
+        if not rows:
             print("  ✓ No trades yet, Q-tables not expected")
             return True
 
-        # Check if Q-tables exist
-        for stock in stocks_with_trades:
-            stock_id = stock['stock_id']
-            symbol = stock['symbol']
+        for row in rows:
+            symbol = row['symbol']
+            q_table = row['q_table']
+            hyperparams = row['hyperparameters'] or {}
+            episodes = int(hyperparams.get('total_episodes', 0))
+            decisions = row['decision_count']
 
-            cur.execute("""
-                SELECT q_table, hyperparameters
-                FROM rl_model_states
-                WHERE stock_id = %s AND model_type = 'Q_LEARNING'
-            """, (stock_id,))
+            if not q_table:
+                print(f"  ⚠ {symbol}: No Q-table found (decisions recorded: {decisions})")
+                continue
 
-            result = cur.fetchone()
-            if result:
-                print(f"  ✓ {symbol}: Q-table persisted")
-            else:
-                print(f"  ⚠ {symbol}: No Q-table found (agent may not have learned yet)")
+            if isinstance(q_table, str):
+                try:
+                    q_table = json.loads(q_table)
+                except json.JSONDecodeError:
+                    print(f"  ✗ {symbol}: Q-table is invalid JSON")
+                    return False
+
+            state_count = len(q_table)
+            print(f"  ✓ {symbol}: {state_count} states, {episodes} episodes, {decisions} decisions")
+
+            if decisions > 0 and episodes == 0:
+                print(f"    ⚠ {symbol}: Decisions logged but episodes never incremented")
 
     return True
 

@@ -56,6 +56,7 @@ async function getAgentData() {
       rms.model_type,
       rms.hyperparameters->>'total_episodes' as total_episodes,
       rms.hyperparameters->>'exploration_rate' as exploration_rate,
+      rms.hyperparameters->>'exploration_decay' as exploration_decay,
       rms.hyperparameters->>'avg_reward' as avg_reward,
       rms.updated_at
     FROM rl_model_states rms
@@ -115,6 +116,7 @@ export default async function AgentPage() {
                     <th className="px-4 py-3">Model Type</th>
                     <th className="px-4 py-3">Episodes</th>
                     <th className="px-4 py-3">Exploration (ε)</th>
+                    <th className="px-4 py-3">Decay</th>
                     <th className="px-4 py-3">Avg Reward</th>
                     <th className="px-4 py-3">Last Updated</th>
                   </tr>
@@ -122,6 +124,7 @@ export default async function AgentPage() {
                 <tbody className="divide-y divide-brand-muted text-sm text-slate-600">
                   {data.modelStates.map((state: any) => {
                     const exploration = Number.parseFloat(String(state.exploration_rate ?? 0)) * 100
+                    const decay = state.exploration_decay ? Number.parseFloat(String(state.exploration_decay)) : null
                     const avgReward = state.avg_reward ? Number.parseFloat(String(state.avg_reward)) : null
                     return (
                       <tr key={state.symbol} className="odd:bg-brand-muted/30 transition-colors hover:bg-brand-muted/40">
@@ -138,6 +141,9 @@ export default async function AgentPage() {
                             </div>
                             <span className="text-xs font-semibold text-slate-500">{exploration.toFixed(1)}%</span>
                           </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm font-mono text-slate-500">
+                          {decay !== null ? decay.toFixed(3) : '—'}
                         </td>
                         <td className="px-4 py-3">
                           {avgReward !== null ? (

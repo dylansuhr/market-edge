@@ -22,7 +22,7 @@ class TradingState:
     This is discretized (binned) to keep Q-table manageable for beginners.
     """
 
-    rsi_category: str          # 'OVERSOLD', 'NEUTRAL', 'OVERBOUGHT'
+    rsi_category: str          # 'OVERSOLD', 'WEAK', 'NEUTRAL', 'STRONG', 'OVERBOUGHT'
     ma_position: str           # 'ABOVE', 'AT', 'BELOW' (price vs MA)
     vwap_position: str         # 'ABOVE', 'AT', 'BELOW' (price vs VWAP)
     position_status: str       # 'LONG', 'FLAT', 'SHORT'
@@ -100,13 +100,17 @@ class TradingState:
             #     exposure_bucket='LIGHT'
             # )
         """
-        # Discretize RSI
+        # Discretize RSI with finer buckets to capture weak/strong momentum
         if rsi < 30:
             rsi_category = 'OVERSOLD'
-        elif rsi > 70:
-            rsi_category = 'OVERBOUGHT'
-        else:
+        elif rsi < 45:
+            rsi_category = 'WEAK'
+        elif rsi < 55:
             rsi_category = 'NEUTRAL'
+        elif rsi < 70:
+            rsi_category = 'STRONG'
+        else:
+            rsi_category = 'OVERBOUGHT'
 
         # Discretize MA position
         ma_diff_pct = ((price - sma) / sma) * 100

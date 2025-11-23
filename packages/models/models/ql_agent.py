@@ -44,7 +44,7 @@ class QLearningAgent:
         learning_rate: float = 0.1,
         discount_factor: float = 0.95,
         exploration_rate: float = 1.0,
-        exploration_decay: float = 0.995,
+        exploration_decay: float = 0.99,
         min_exploration: float = 0.01
     ):
         """
@@ -66,8 +66,8 @@ class QLearningAgent:
                              Starts high, decays over time
 
             exploration_decay: How fast exploration rate decreases
-                              0.995 = slow decay (recommended)
-                              0.99 = medium decay
+                              0.995 = very slow decay
+                              0.99 = medium decay (default)
                               0.95 = fast decay
 
             min_exploration: Minimum exploration rate
@@ -273,10 +273,20 @@ class QLearningAgent:
         return {
             'total_episodes': self.total_episodes,
             'exploration_rate': round(self.exploration_rate, 4),
+            'exploration_decay': round(self.exploration_decay, 4),
             'avg_reward': round(self.total_rewards / max(self.total_episodes, 1), 2),
             'q_table_size': len(self.q_table),
             'total_rewards': round(self.total_rewards, 2)
         }
+
+    def set_exploration_decay(self, decay: float):
+        """
+        Dynamically adjust exploration decay.
+
+        Used for adaptive scheduling based on win rate or other KPIs.
+        """
+        decay = max(min(decay, 0.999), 0.5)
+        self.exploration_decay = decay
 
     def save(self) -> Dict:
         """
@@ -290,6 +300,8 @@ class QLearningAgent:
             'learning_rate': self.learning_rate,
             'discount_factor': self.discount_factor,
             'exploration_rate': self.exploration_rate,
+            'exploration_decay': self.exploration_decay,
+            'min_exploration': self.min_exploration,
             'total_episodes': self.total_episodes,
             'total_rewards': self.total_rewards
         }
@@ -308,7 +320,9 @@ class QLearningAgent:
         agent = cls(
             learning_rate=data['learning_rate'],
             discount_factor=data['discount_factor'],
-            exploration_rate=data['exploration_rate']
+            exploration_rate=data['exploration_rate'],
+            exploration_decay=data.get('exploration_decay', 0.99),
+            min_exploration=data.get('min_exploration', 0.01)
         )
 
         # Restore Q-table (using ast.literal_eval for security)
@@ -323,6 +337,8 @@ class QLearningAgent:
 
         agent.total_episodes = data['total_episodes']
         agent.total_rewards = data['total_rewards']
+        agent.exploration_decay = data.get('exploration_decay', agent.exploration_decay)
+        agent.min_exploration = data.get('min_exploration', agent.min_exploration)
 
         return agent
 

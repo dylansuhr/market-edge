@@ -184,7 +184,7 @@ STARTING_CASH=100000.00
 LEARNING_RATE=0.1
 DISCOUNT_FACTOR=0.95
 EXPLORATION_RATE=1.0
-EXPLORATION_DECAY=0.995
+EXPLORATION_DECAY=0.99
 MIN_EXPLORATION=0.01
 ```
 
@@ -241,6 +241,7 @@ make trade          # Run trading agent
 make settle         # Settle positions
 make dashboard      # Start dashboard
 make reset-sim      # Reset trading tables, reseed data, run agent once
+make report-exploration  # Exploration vs exploitation health report
 
 # Development
 make clean          # Clean temporary files

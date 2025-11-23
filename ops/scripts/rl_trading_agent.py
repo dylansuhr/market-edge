@@ -52,6 +52,20 @@ MAX_POSITION_SIZE = 25  # Max shares per stock
 STARTING_CASH = 100000.0  # Virtual starting capital
 
 
+def get_adaptive_decay_rate(win_rate_percent: float) -> float:
+    """
+    Adjust exploration decay based on recent performance.
+
+    Higher win rate => decay faster to exploit. Lower => decay slower.
+    """
+    if win_rate_percent >= 50:
+        return 0.98
+    elif win_rate_percent <= 30:
+        return 0.995
+    else:
+        return 0.99
+
+
 def load_or_create_agent(stock_id: int) -> QLearningAgent:
     """
     Load existing agent or create new one.
@@ -119,6 +133,8 @@ def get_current_state(symbol: str, stock_id: int) -> Tuple[TradingState, Dict]:
     cash_balance = float(bankroll['balance'])
     total_exposure = 0.0
     position_qty = 0
+    position_avg_entry = 0.0
+    position_last_trade_time = None
 
     for pos in positions:
         qty = float(pos['quantity'])
@@ -127,10 +143,17 @@ def get_current_state(symbol: str, stock_id: int) -> Tuple[TradingState, Dict]:
 
         if pos['stock_id'] == stock_id:
             position_qty = int(qty)
+            position_avg_entry = avg_price
+            position_last_trade_time = pos.get('last_trade_time')
 
     # Current and previous prices
     current_price = prices[0]['close']  # Most recent
     prev_price = prices[1]['close'] if len(prices) > 1 else current_price
+    unrealized_pnl = (current_price - position_avg_entry) * position_qty if position_qty > 0 else 0.0
+    position_age_minutes = 0.0
+    if position_last_trade_time:
+        now = datetime.now(position_last_trade_time.tzinfo) if getattr(position_last_trade_time, 'tzinfo', None) else datetime.now()
+        position_age_minutes = max((now - position_last_trade_time).total_seconds() / 60.0, 0.0)
 
     # Create trading state
     state = TradingState.from_market_data(
@@ -151,25 +174,36 @@ def get_current_state(symbol: str, stock_id: int) -> Tuple[TradingState, Dict]:
         'sma': indicators['SMA_50'],
         'vwap': indicators['VWAP'],
         'position_qty': position_qty,
+        'avg_entry_price': position_avg_entry,
+        'unrealized_pnl': unrealized_pnl,
+        'prev_price': prev_price,
         'cash_balance': cash_balance,
         'total_exposure': total_exposure,
         'cash_bucket': state.cash_bucket,
         'exposure_bucket': state.exposure_bucket,
-        'starting_cash': STARTING_CASH
+        'starting_cash': STARTING_CASH,
+        'position_age_minutes': position_age_minutes,
+        'last_trade_time': position_last_trade_time
     }
 
     return state, market_data
 
 
-def calculate_reward(action: str, executed: bool, realized_pnl: float, state: TradingState) -> float:
+def calculate_reward(
+    action: str,
+    executed: bool,
+    realized_pnl: float,
+    state: TradingState,
+    market_data: Dict
+) -> float:
     """
     Calculate reward for Q-learning based on action and outcome.
 
     Reward structure:
-    - BUY (executed): Small penalty scaled by cash bucket & exposure level
-    - SELL (executed): Realized P&L plus a bonus when freeing scarce capital
-    - HOLD: Baseline opportunity cost penalty (-0.01) with extra cost when overexposed
-    - Not executed (BUY/SELL failed): No reward (0)
+    - BUY: Small positive reward (encourage opening positions) with mild capital penalties
+    - SELL: Realized P&L plus time-aware bonuses/penalties
+    - HOLD: Opportunity cost with reward/penalty tied to unrealized P&L changes
+    - Not executed: No reward (agent learns nothing from failed orders)
 
     Args:
         action: 'BUY', 'SELL', or 'HOLD'
@@ -180,52 +214,57 @@ def calculate_reward(action: str, executed: bool, realized_pnl: float, state: Tr
     Returns:
         Reward value for Q-learning update
 
-    Note: After analysis, reduced BUY penalties to minimize asymmetry with SELL rewards.
-          Previous range: -0.02 to -0.16 was too harsh and biased agent against opening positions.
-          New range: -0.01 to -0.11 provides better balance.
+    Intermediate shaping:
+    - Quick profitable exits (< ~10 minutes) get a +0.05 bonus
+    - Lingering losing positions accrue -0.02 per ~10 minutes held
+    - HOLD rewards react to unrealized P&L changes to reduce bias
     """
-    # Reduced penalties to minimize BUY/SELL asymmetry
-    cash_adjustments = {
-        'HIGH': 0.0,
-        'MEDIUM': -0.02,   # Was -0.03
-        'LOW': -0.05       # Was -0.06
-    }
-    exposure_adjustments = {
-        'NONE': 0.0,
-        'LIGHT': -0.01,    # Was -0.02
-        'HEAVY': -0.04,    # Was -0.05
-        'OVEREXTENDED': -0.06  # Was -0.08
-    }
+    position_age_minutes = market_data.get('position_age_minutes', 0.0)
+    position_qty = market_data.get('position_qty', 0)
+    price = market_data.get('price', 0.0)
+    prev_price = market_data.get('prev_price', price)
+    unrealized_pnl = market_data.get('unrealized_pnl', 0.0)
 
-    # HOLD penalty applies even if not "executed" (HOLD is always applicable)
     if action == 'HOLD':
-        penalty = -0.01
+        reward = -0.005
         if state.cash_bucket == 'LOW':
-            penalty -= 0.01
+            reward -= 0.005
         if state.exposure_bucket in ('HEAVY', 'OVEREXTENDED'):
-            penalty -= 0.01
-        return penalty
+            reward -= 0.005
 
-    # For BUY/SELL, only reward if executed
+        if position_qty > 0:
+            price_change_pct = ((price - prev_price) / max(prev_price, 1e-6)) * 100
+            reward += max(min(price_change_pct / 100.0, 0.02), -0.02)
+
+            if unrealized_pnl != 0:
+                reward += max(min(unrealized_pnl / 1000.0, 0.05), -0.05)
+        return reward
+
     if not executed:
         return 0.0
 
     if action == 'BUY':
-        base_penalty = -0.01  # Reduced from -0.02
-        penalty = base_penalty
-        penalty += cash_adjustments.get(state.cash_bucket, -0.04)
-        penalty += exposure_adjustments.get(state.exposure_bucket, -0.01)
-        return penalty
-    elif action == 'SELL':
-        # Realized P&L is the reward with a bonus for freeing capital when constrained
-        bonus = 0.0
+        reward = 0.02
         if state.cash_bucket == 'LOW':
-            bonus += 0.05
+            reward -= 0.01
         if state.exposure_bucket in ('HEAVY', 'OVEREXTENDED'):
-            bonus += 0.05
-        return realized_pnl + bonus
-    else:
-        return 0.0
+            reward -= 0.02
+        return reward
+
+    if action == 'SELL':
+        reward = realized_pnl
+        if realized_pnl > 0 and position_age_minutes <= 10:
+            reward += 0.05
+        if realized_pnl < 0 and position_age_minutes >= 30:
+            penalty_steps = int(position_age_minutes // 10)
+            reward -= 0.02 * penalty_steps
+        if state.cash_bucket == 'LOW':
+            reward += 0.02
+        if state.exposure_bucket in ('HEAVY', 'OVEREXTENDED'):
+            reward += 0.02
+        return reward
+
+    return 0.0
 
 
 def execute_action(
@@ -367,13 +406,22 @@ def execute_action(
     # Q-LEARNING UPDATE: Learn from this action
     try:
         # Calculate reward based on action outcome
-        reward = calculate_reward(action, result['executed'], result['realized_pnl'], state)
+        reward = calculate_reward(
+            action,
+            result['executed'],
+            result['realized_pnl'],
+            state,
+            market_data
+        )
 
         # Get next state after action (current market state)
         next_state, next_market_data = get_current_state(symbol, stock_id)
 
         # Update Q-value (done=False since position may still be open)
         agent.update_q_value(state, action, reward, next_state, done=False)
+
+        if result['executed']:
+            agent.finish_episode()
 
         if reward != 0:
             print(f"    🧠 Q-Learning: Reward={reward:.2f}")
@@ -383,7 +431,7 @@ def execute_action(
     return result
 
 
-def trade_single_stock(symbol: str, force_exploit: bool = False) -> Dict:
+def trade_single_stock(symbol: str, force_exploit: bool = False, decay_rate: float = 0.99) -> Dict:
     """
     Run trading logic for a single stock.
 
@@ -405,8 +453,10 @@ def trade_single_stock(symbol: str, force_exploit: bool = False) -> Dict:
 
         # Load or create agent
         agent = load_or_create_agent(stock_id)
+        agent.set_exploration_decay(decay_rate)
         stats = agent.get_stats()
         print(f"  Agent: {stats['total_episodes']} episodes, ε={stats['exploration_rate']:.3f}")
+        print(f"  Decay target: {stats['exploration_decay']:.3f}")
 
         # Get current state
         state, market_data = get_current_state(symbol, stock_id)
@@ -469,12 +519,14 @@ def main():
 
     # Get current bankroll
     bankroll = get_paper_bankroll()
+    session_decay_rate = get_adaptive_decay_rate(bankroll['win_rate'])
     print(f"💰 Bankroll: ${bankroll['balance']:.2f} | ROI: {bankroll['roi']:.2f}% | Win Rate: {bankroll['win_rate']:.1f}%")
+    print(f"🎯 Adaptive exploration decay set to {session_decay_rate:.3f}")
 
     # Trade each stock
     results = []
     for symbol in symbols:
-        result = trade_single_stock(symbol, force_exploit=args.exploit)
+        result = trade_single_stock(symbol, force_exploit=args.exploit, decay_rate=session_decay_rate)
         results.append(result)
 
     # Summary
