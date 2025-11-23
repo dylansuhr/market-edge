@@ -340,7 +340,32 @@ class QLearningAgent:
         agent.exploration_decay = data.get('exploration_decay', agent.exploration_decay)
         agent.min_exploration = data.get('min_exploration', agent.min_exploration)
 
+        # Migrate legacy RSI buckets (3 → 5) so old Q-tables stay usable
+        agent._migrate_old_states()
+
         return agent
+
+    def _migrate_old_states(self):
+        """
+        Duplicate legacy 3-bucket RSI states into the new 5-bucket schema.
+        """
+        if not self.q_table:
+            return
+
+        rsi_values = {state[0] for state in self.q_table.keys()}
+        if 'WEAK' in rsi_values or 'STRONG' in rsi_values:
+            return  # Already migrated or freshly trained
+
+        migrated = {}
+        for state, actions in self.q_table.items():
+            rsi_bucket = state[0]
+            if rsi_bucket == 'NEUTRAL':
+                for new_bucket in ('WEAK', 'NEUTRAL', 'STRONG'):
+                    migrated[(new_bucket,) + state[1:]] = actions.copy()
+            else:
+                migrated[state] = actions
+
+        self.q_table = migrated
 
 
 # Example usage
