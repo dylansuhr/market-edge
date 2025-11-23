@@ -2,8 +2,6 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { query } from '@/lib/db'
 import { formatCurrency, formatPercent } from '@/lib/format'
-import { tooltips } from '@/lib/tooltips'
-import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { SurfaceCard } from '@/components/ui/SurfaceCard'
 import { MetricStat } from '@/components/ui/MetricStat'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -179,9 +177,8 @@ export default async function StockDetailPage({ params }: StockParams) {
               </p>
             </div>
             <div className="rounded-3xl bg-white/15 px-6 py-5 text-right shadow-card">
-              <p className="text-xs uppercase tracking-wide text-white/70 flex items-center justify-end">
+              <p className="text-xs uppercase tracking-wide text-white/70">
                 Last Price
-                <InfoTooltip content={tooltips.lastPrice} />
               </p>
               <p className="mt-1 text-4xl font-semibold text-white">
                 {formatCurrency(Number(lastPrice))}
@@ -197,22 +194,18 @@ export default async function StockDetailPage({ params }: StockParams) {
               <MetricStat
                 label="Quantity"
                 value={position.quantity.toLocaleString()}
-                tooltip={tooltips.quantity}
               />
               <MetricStat
                 label="Average Entry"
                 value={formatCurrency(Number(position.avg_entry_price))}
-                tooltip={tooltips.avgPrice}
               />
               <MetricStat
                 label="Market Value"
                 value={formatCurrency(Number(position.market_value))}
-                tooltip={tooltips.marketValue}
               />
               <div className="flex flex-col gap-1">
-                <span className="text-sm uppercase tracking-wide text-slate-400 flex items-center">
+                <span className="text-sm uppercase tracking-wide text-slate-400">
                   Unrealized P&amp;L
-                  <InfoTooltip content={tooltips.unrealizedPnL} />
                 </span>
                 <StatusBadge tone={Number(position.unrealized_pnl) >= 0 ? 'positive' : 'negative'}>
                   {Number(position.unrealized_pnl) >= 0 ? '+' : ''}
@@ -233,27 +226,12 @@ export default async function StockDetailPage({ params }: StockParams) {
                 <thead className="border-b border-brand-muted bg-brand-muted/40">
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-3">Time</th>
-                    <th className="px-4 py-3 flex items-center">
-                      Action
-                      <InfoTooltip content={tooltips.tradeAction} position="right" />
-                    </th>
+                    <th className="px-4 py-3">Action</th>
                     <th className="px-4 py-3">Qty</th>
-                    <th className="px-4 py-3 flex items-center">
-                      Price
-                      <InfoTooltip content={tooltips.tradePrice} position="right" />
-                    </th>
-                    <th className="px-4 py-3 flex items-center">
-                      P&amp;L
-                      <InfoTooltip content={tooltips.tradePnL} position="right" />
-                    </th>
-                    <th className="px-4 py-3 flex items-center">
-                      Strategy
-                      <InfoTooltip content={tooltips.strategy} position="right" />
-                    </th>
-                    <th className="px-4 py-3 flex items-center">
-                      Reasoning
-                      <InfoTooltip content={tooltips.reasoning} position="right" />
-                    </th>
+                    <th className="px-4 py-3">Price</th>
+                    <th className="px-4 py-3">P&amp;L</th>
+                    <th className="px-4 py-3">Strategy</th>
+                    <th className="px-4 py-3">Reasoning</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-muted text-sm text-slate-600">
@@ -303,22 +281,10 @@ export default async function StockDetailPage({ params }: StockParams) {
                 <thead className="border-b border-brand-muted bg-brand-muted/40">
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-3">Time</th>
-                    <th className="px-4 py-3 flex items-center">
-                      Decision
-                      <InfoTooltip content={tooltips.aiDecision} position="right" />
-                    </th>
-                    <th className="px-4 py-3 flex items-center">
-                      Executed?
-                      <InfoTooltip content={tooltips.executed} position="right" />
-                    </th>
-                    <th className="px-4 py-3 flex items-center">
-                      Reasoning
-                      <InfoTooltip content={tooltips.reasoning} position="right" />
-                    </th>
-                    <th className="px-4 py-3 flex items-center">
-                      State Snapshot
-                      <InfoTooltip content={tooltips.stateSnapshot} position="right" />
-                    </th>
+                    <th className="px-4 py-3">Decision</th>
+                    <th className="px-4 py-3">Executed?</th>
+                    <th className="px-4 py-3">Reasoning</th>
+                    <th className="px-4 py-3">State Snapshot</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-muted text-sm text-slate-600">

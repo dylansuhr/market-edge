@@ -6,8 +6,6 @@
 
 import { query, queryOne } from '@/lib/db'
 import { formatCurrency, formatPercent } from '@/lib/format'
-import { tooltips } from '@/lib/tooltips'
-import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { SurfaceCard } from '@/components/ui/SurfaceCard'
 import { MetricStat } from '@/components/ui/MetricStat'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -364,9 +362,8 @@ export default async function CapitalDisciplinePage() {
 
           <SurfaceCard className="flex flex-col gap-4">
             <div>
-              <h2 className="text-xl font-semibold text-slate-800 flex items-center">
+              <h2 className="text-xl font-semibold text-slate-800">
                 Exposure Snapshot
-                <InfoTooltip content={tooltips.portfolioExposure} />
               </h2>
               <p className="text-sm text-slate-500">Cash vs. capital deployed right now.</p>
             </div>
@@ -374,21 +371,18 @@ export default async function CapitalDisciplinePage() {
               label="Cash Balance"
               value={formatCurrency(metrics.exposure.cashBalance)}
               description="Current cash available"
-              tooltip={tooltips.cashBalance}
             />
             <MetricStat
               label="Cost Basis Deployed"
               value={formatCurrency(metrics.exposure.totalCostBasis)}
               description={`${formatPercent(metrics.exposure.exposureRatio * 100)} of cash`}
               tone={exposureMetricTone}
-              tooltip={tooltips.costBasisDeployed}
             />
             <MetricStat
               label="Market Value Exposure"
               value={formatCurrency(metrics.exposure.totalMarketValue)}
               description={`${formatPercent(marketValueRatioPct)} of cash`}
               tone={exposureMetricTone}
-              tooltip={tooltips.marketValue}
             />
             <div className="space-y-2 text-xs text-slate-500">
               <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">

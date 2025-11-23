@@ -1,6 +1,5 @@
 import { ReactNode } from 'react'
 import { cn } from '@/lib/cn'
-import { InfoTooltip } from './InfoTooltip'
 
 interface MetricStatProps {
   label: ReactNode
@@ -8,7 +7,6 @@ interface MetricStatProps {
   description?: ReactNode
   tone?: 'default' | 'positive' | 'negative' | 'muted'
   className?: string
-  tooltip?: string
 }
 
 const toneClasses: Record<NonNullable<MetricStatProps['tone']>, string> = {
@@ -18,12 +16,11 @@ const toneClasses: Record<NonNullable<MetricStatProps['tone']>, string> = {
   muted: 'text-slate-500'
 }
 
-export function MetricStat({ label, value, description, tone = 'default', className, tooltip }: MetricStatProps) {
+export function MetricStat({ label, value, description, tone = 'default', className }: MetricStatProps) {
   return (
     <div className={cn('flex flex-col gap-1', className)}>
-      <span className="text-sm uppercase tracking-wide text-slate-400 flex items-center">
+      <span className="text-sm uppercase tracking-wide text-slate-400">
         {label}
-        {tooltip && <InfoTooltip content={tooltip} />}
       </span>
       <span className={cn('text-2xl font-semibold', toneClasses[tone])}>{value}</span>
       {description ? <span className="text-xs text-slate-500">{description}</span> : null}

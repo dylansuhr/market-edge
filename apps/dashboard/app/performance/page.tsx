@@ -6,8 +6,6 @@
 
 import { query } from '@/lib/db'
 import { formatCurrency, formatPercent } from '@/lib/format'
-import { tooltips } from '@/lib/tooltips'
-import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { SurfaceCard } from '@/components/ui/SurfaceCard'
 import { MetricStat } from '@/components/ui/MetricStat'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -61,20 +59,17 @@ export default async function PerformancePage() {
                 value={latestPnl !== null ? formatCurrency(latestPnl) : '–'}
                 description="Total P&L"
                 tone={latestPnl !== null ? (latestPnl >= 0 ? 'positive' : 'negative') : 'muted'}
-                tooltip={tooltips.totalPnL}
               />
               <MetricStat
                 label="Win Rate"
                 value={latestWinRate !== null ? `${latestWinRate.toFixed(1)}%` : '–'}
                 description={`${latest.total_trades} trades`}
-                tooltip={tooltips.winRate}
               />
               <MetricStat
                 label="Sharpe Ratio"
                 value={latest.sharpe_ratio ? parseFloat(latest.sharpe_ratio).toFixed(2) : '–'}
                 description={latest.max_drawdown ? `Max drawdown ${(parseFloat(latest.max_drawdown) * 100).toFixed(1)}%` : undefined}
                 tone="muted"
-                tooltip={tooltips.sharpeRatio}
               />
             </div>
           ) : (
@@ -92,32 +87,14 @@ export default async function PerformancePage() {
                 <thead className="border-b border-brand-muted bg-brand-muted/40">
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3 flex items-center">
-                      Trades
-                      <InfoTooltip content={tooltips.totalTrades} position="right" />
-                    </th>
+                    <th className="px-4 py-3">Trades</th>
                     <th className="px-4 py-3">Wins</th>
                     <th className="px-4 py-3">Losses</th>
-                    <th className="px-4 py-3 flex items-center">
-                      Win Rate
-                      <InfoTooltip content={tooltips.winRate} position="right" />
-                    </th>
-                    <th className="px-4 py-3 flex items-center">
-                      Total P&L
-                      <InfoTooltip content={tooltips.totalPnL} position="right" />
-                    </th>
-                    <th className="px-4 py-3 flex items-center">
-                      Avg Win
-                      <InfoTooltip content={tooltips.avgWin} position="right" />
-                    </th>
-                    <th className="px-4 py-3 flex items-center">
-                      Avg Loss
-                      <InfoTooltip content={tooltips.avgLoss} position="right" />
-                    </th>
-                    <th className="px-4 py-3 flex items-center">
-                      Sharpe Ratio
-                      <InfoTooltip content={tooltips.sharpeRatio} position="right" />
-                    </th>
+                    <th className="px-4 py-3">Win Rate</th>
+                    <th className="px-4 py-3">Total P&L</th>
+                    <th className="px-4 py-3">Avg Win</th>
+                    <th className="px-4 py-3">Avg Loss</th>
+                    <th className="px-4 py-3">Sharpe Ratio</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-muted text-sm text-slate-600">

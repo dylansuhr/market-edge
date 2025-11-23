@@ -7,8 +7,6 @@
 import Link from 'next/link'
 import { query } from '@/lib/db'
 import { formatCurrency, formatPercent } from '@/lib/format'
-import { tooltips } from '@/lib/tooltips'
-import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { SurfaceCard } from '@/components/ui/SurfaceCard'
 import { MetricStat } from '@/components/ui/MetricStat'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -101,34 +99,25 @@ export default async function OverviewPage() {
         <div className="rounded-3xl bg-brand-gradient p-10 text-white shadow-card">
           <div className="flex flex-wrap items-end justify-between gap-6">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-white/70 flex items-center">
+              <p className="text-xs uppercase tracking-[0.3em] text-white/70">
                 Portfolio value
-                <InfoTooltip content={tooltips.portfolioValue} />
               </p>
               <h2 className="mt-3 text-5xl font-semibold text-brand-glow">{formatCurrency(metrics.net_worth)}</h2>
               <p className="mt-4 text-sm text-white/80">
-                <span className="inline-flex items-center">
-                  Starting cash {formatCurrency(metrics.starting_cash)}
-                  <InfoTooltip content={tooltips.startingCash} />
-                </span>
+                Starting cash {formatCurrency(metrics.starting_cash)}
                 {' · '}
-                <span className="inline-flex items-center">
-                  Total P&amp;L {formatCurrency(metrics.total_pnl)}
-                  <InfoTooltip content={tooltips.totalPnL} />
-                </span>
+                Total P&amp;L {formatCurrency(metrics.total_pnl)}
               </p>
             </div>
             <div className="rounded-2xl bg-white/15 px-6 py-5 text-right shadow-card">
-              <p className="text-xs uppercase tracking-wide text-white/70 flex items-center justify-end">
+              <p className="text-xs uppercase tracking-wide text-white/70">
                 Realized P&amp;L
-                <InfoTooltip content={tooltips.realizedPnL} />
               </p>
               <p className={`mt-1 text-3xl font-semibold ${parseFloat(metrics.realized_pnl) >= 0 ? 'text-emerald-100' : 'text-rose-100'} text-brand-glow`}>
                 {formatCurrency(metrics.realized_pnl)}
               </p>
-              <p className="text-xs text-white/75 flex items-center justify-end">
+              <p className="text-xs text-white/75">
                 Total ROI {formatPercent(metrics.total_roi, 2)}
-                <InfoTooltip content={tooltips.totalROI} />
               </p>
             </div>
           </div>
@@ -143,7 +132,6 @@ export default async function OverviewPage() {
             <MetricStat
               label="Cash Balance"
               value={formatCurrency(metrics.cash_balance)}
-              tooltip={tooltips.cashBalance}
             />
           </SurfaceCard>
           <SurfaceCard className="border border-brand-muted">
@@ -151,7 +139,6 @@ export default async function OverviewPage() {
               label="Unrealized P&L"
               value={formatCurrency(metrics.total_unrealized_pnl)}
               tone={parseFloat(metrics.total_unrealized_pnl) >= 0 ? 'positive' : 'negative'}
-              tooltip={tooltips.unrealizedPnL}
             />
           </SurfaceCard>
         </div>
@@ -162,7 +149,6 @@ export default async function OverviewPage() {
           <MetricStat
             label="Open Positions Value"
             value={formatCurrency(metrics.open_positions_market_value)}
-            tooltip={tooltips.marketValue}
           />
         </SurfaceCard>
         <SurfaceCard>
@@ -170,14 +156,12 @@ export default async function OverviewPage() {
             label="Win Rate"
             value={formatPercent(metrics.win_rate || 0)}
             description={`${metrics.total_trades.toLocaleString()} trades`}
-            tooltip={tooltips.winRate}
           />
         </SurfaceCard>
         <SurfaceCard>
           <MetricStat
             label="Total Trades"
             value={metrics.total_trades.toLocaleString()}
-            tooltip={tooltips.totalTrades}
           />
         </SurfaceCard>
       </div>
@@ -185,36 +169,32 @@ export default async function OverviewPage() {
       {/* Performance Snapshot */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-gray-500 text-sm flex items-center">
+          <h3 className="text-gray-500 text-sm">
             Realized P&amp;L
-            <InfoTooltip content={tooltips.realizedPnL} />
           </h3>
           <p className={`text-2xl font-bold ${parseFloat(metrics.realized_pnl) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {formatCurrency(metrics.realized_pnl)}
           </p>
         </div>
         <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-gray-500 text-sm flex items-center">
+          <h3 className="text-gray-500 text-sm">
             Total P&amp;L
-            <InfoTooltip content={tooltips.totalPnL} />
           </h3>
           <p className={`text-2xl font-bold ${parseFloat(metrics.total_pnl) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {formatCurrency(metrics.total_pnl)}
           </p>
         </div>
         <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-gray-500 text-sm flex items-center">
+          <h3 className="text-gray-500 text-sm">
             Total ROI
-            <InfoTooltip content={tooltips.totalROI} />
           </h3>
           <p className={`text-2xl font-bold ${parseFloat(metrics.total_roi) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {formatPercent(metrics.total_roi, 2)}
           </p>
         </div>
         <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-gray-500 text-sm flex items-center">
+          <h3 className="text-gray-500 text-sm">
             Win Rate
-            <InfoTooltip content={tooltips.winRate} />
           </h3>
           <p className="text-2xl font-bold">
             {formatPercent(metrics.win_rate || 0)}
@@ -227,9 +207,8 @@ export default async function OverviewPage() {
 
       {/* Active Positions */}
       <SurfaceCard className="mb-8">
-        <h2 className="text-xl font-semibold text-slate-800 mb-4 flex items-center">
+        <h2 className="text-xl font-semibold text-slate-800 mb-4">
           Active Positions
-          <InfoTooltip content={tooltips.openPositions} />
         </h2>
         {data.positions.length > 0 ? (
           <table className="w-full">
@@ -237,19 +216,10 @@ export default async function OverviewPage() {
               <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
                 <th className="pb-3">Symbol</th>
                 <th className="pb-3">Quantity</th>
-                <th className="pb-3 flex items-center">
-                  Avg Price
-                  <InfoTooltip content={tooltips.avgPrice} position="right" />
-                </th>
+                <th className="pb-3">Avg Price</th>
                 <th className="pb-3">Current Price</th>
-                <th className="pb-3 flex items-center">
-                  Market Value
-                  <InfoTooltip content={tooltips.marketValue} position="right" />
-                </th>
-                <th className="pb-3 flex items-center">
-                  Unrealized P&amp;L
-                  <InfoTooltip content={tooltips.unrealizedPnL} position="right" />
-                </th>
+                <th className="pb-3">Market Value</th>
+                <th className="pb-3">Unrealized P&amp;L</th>
               </tr>
             </thead>
             <tbody className="text-sm text-slate-600">

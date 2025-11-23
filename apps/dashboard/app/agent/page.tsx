@@ -5,8 +5,6 @@
  */
 
 import { query } from '@/lib/db'
-import { tooltips } from '@/lib/tooltips'
-import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { SurfaceCard } from '@/components/ui/SurfaceCard'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 
@@ -115,14 +113,8 @@ export default async function AgentPage() {
                   <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-3">Symbol</th>
                     <th className="px-4 py-3">Model Type</th>
-                    <th className="px-4 py-3 flex items-center">
-                      Episodes
-                      <InfoTooltip content={tooltips.episodes} position="right" />
-                    </th>
-                    <th className="px-4 py-3 flex items-center">
-                      Exploration (ε)
-                      <InfoTooltip content={tooltips.explorationRate} position="right" />
-                    </th>
+                    <th className="px-4 py-3">Episodes</th>
+                    <th className="px-4 py-3">Exploration (ε)</th>
                     <th className="px-4 py-3">Avg Reward</th>
                     <th className="px-4 py-3">Last Updated</th>
                   </tr>

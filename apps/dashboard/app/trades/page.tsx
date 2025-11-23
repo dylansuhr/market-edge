@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/format'
-import { tooltips } from '@/lib/tooltips'
-import { InfoTooltip } from '@/components/ui/InfoTooltip'
 import { SurfaceCard } from '@/components/ui/SurfaceCard'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 
@@ -236,27 +234,12 @@ export default function TradesPage() {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Time</th>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Symbol</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500 flex items-center">
-                        Action
-                        <InfoTooltip content={tooltips.tradeAction} position="right" />
-                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Action</th>
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Qty</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500 flex items-center">
-                        Price
-                        <InfoTooltip content={tooltips.tradePrice} position="right" />
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500 flex items-center">
-                        P&amp;L
-                        <InfoTooltip content={tooltips.tradePnL} position="right" />
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500 flex items-center">
-                        Strategy
-                        <InfoTooltip content={tooltips.strategy} position="right" />
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500 flex items-center">
-                        Reasoning
-                        <InfoTooltip content={tooltips.reasoning} position="right" />
-                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Price</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">P&amp;L</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Strategy</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Reasoning</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-brand-muted text-sm text-slate-600">
