@@ -357,15 +357,19 @@ class QLearningAgent:
             return  # Already migrated or freshly trained
 
         migrated = {}
+        migrated_count = 0
         for state, actions in self.q_table.items():
             rsi_bucket = state[0]
             if rsi_bucket == 'NEUTRAL':
                 for new_bucket in ('WEAK', 'NEUTRAL', 'STRONG'):
                     migrated[(new_bucket,) + state[1:]] = actions.copy()
+                migrated_count += 2  # two new states added beyond original
             else:
                 migrated[state] = actions
 
         self.q_table = migrated
+        if migrated_count:
+            print(f"[QLearningAgent] Migrated legacy RSI states -> added {migrated_count} entries for finer buckets.")
 
 
 # Example usage

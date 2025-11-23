@@ -20,6 +20,7 @@ class TradingState:
     - Price momentum
 
     This is discretized (binned) to keep Q-table manageable for beginners.
+    RSI buckets: OVERSOLD, WEAK, NEUTRAL, STRONG, OVERBOUGHT (5 buckets).
     """
 
     rsi_category: str          # 'OVERSOLD', 'WEAK', 'NEUTRAL', 'STRONG', 'OVERBOUGHT'
