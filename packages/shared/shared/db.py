@@ -551,6 +551,25 @@ def get_paper_bankroll() -> Dict:
         }
 
 
+def get_stock_win_rate(stock_id: int) -> Optional[float]:
+    """
+    Calculate win rate percentage for a specific stock.
+    """
+    with get_cursor(commit=False) as cur:
+        cur.execute("""
+            SELECT
+                COUNT(*) FILTER (WHERE status = 'CLOSED' AND profit_loss > 0) AS wins,
+                COUNT(*) FILTER (WHERE status = 'CLOSED') AS total
+            FROM paper_trades
+            WHERE stock_id = %s
+        """, (stock_id,))
+
+        row = cur.fetchone()
+        if not row or row['total'] == 0:
+            return None
+        return (row['wins'] / row['total']) * 100.0
+
+
 # NOTE: update_paper_bankroll() and adjust_paper_bankroll_balance() removed
 # Balance is now calculated dynamically from paper_trades via the paper_bankroll view
 # No manual updates needed - single source of truth architecture

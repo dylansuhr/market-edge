@@ -38,6 +38,7 @@ from shared.shared.db import (
     insert_paper_trade,
     get_active_positions,
     get_paper_bankroll,
+    get_stock_win_rate,
     save_q_table,
     load_q_table,
     insert_decision_log
@@ -50,6 +51,10 @@ DEFAULT_SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'NVDA', 'SPY', 'QQQ', 'META'
 # Trading parameters
 MAX_POSITION_SIZE = 25  # Max shares per stock
 STARTING_CASH = 100000.0  # Virtual starting capital
+QUICK_EXIT_THRESHOLD_MINUTES = int(os.getenv('QUICK_EXIT_THRESHOLD', '10'))
+LINGERING_THRESHOLD_MINUTES = int(os.getenv('LINGERING_THRESHOLD', '30'))
+QUICK_EXIT_BONUS = float(os.getenv('QUICK_EXIT_BONUS', '0.05'))
+LINGERING_PENALTY_PER_BLOCK = float(os.getenv('LINGERING_PENALTY', '0.02'))
 
 
 def get_adaptive_decay_rate(win_rate_percent: float) -> float:
@@ -253,11 +258,11 @@ def calculate_reward(
 
     if action == 'SELL':
         reward = realized_pnl
-        if realized_pnl > 0 and position_age_minutes <= 10:
-            reward += 0.05
-        if realized_pnl < 0 and position_age_minutes >= 30:
-            penalty_steps = int(position_age_minutes // 10)
-            reward -= 0.02 * penalty_steps
+        if realized_pnl > 0 and position_age_minutes <= QUICK_EXIT_THRESHOLD_MINUTES:
+            reward += QUICK_EXIT_BONUS
+        if realized_pnl < 0 and position_age_minutes >= LINGERING_THRESHOLD_MINUTES:
+            penalty_steps = int(position_age_minutes // max(LINGERING_THRESHOLD_MINUTES / 3, 1))
+            reward -= LINGERING_PENALTY_PER_BLOCK * penalty_steps
         if state.cash_bucket == 'LOW':
             reward += 0.02
         if state.exposure_bucket in ('HEAVY', 'OVEREXTENDED'):
@@ -419,9 +424,7 @@ def execute_action(
 
         # Update Q-value (done=False since position may still be open)
         agent.update_q_value(state, action, reward, next_state, done=False)
-
-        if result['executed']:
-            agent.finish_episode()
+        agent.finish_episode()
 
         if reward != 0:
             print(f"    🧠 Q-Learning: Reward={reward:.2f}")
@@ -431,7 +434,7 @@ def execute_action(
     return result
 
 
-def trade_single_stock(symbol: str, force_exploit: bool = False, decay_rate: float = 0.99) -> Dict:
+def trade_single_stock(symbol: str, portfolio_win_rate: float, force_exploit: bool = False) -> Dict:
     """
     Run trading logic for a single stock.
 
@@ -453,6 +456,8 @@ def trade_single_stock(symbol: str, force_exploit: bool = False, decay_rate: flo
 
         # Load or create agent
         agent = load_or_create_agent(stock_id)
+        stock_win_rate = get_stock_win_rate(stock_id)
+        decay_rate = get_adaptive_decay_rate(stock_win_rate if stock_win_rate is not None else portfolio_win_rate)
         agent.set_exploration_decay(decay_rate)
         stats = agent.get_stats()
         print(f"  Agent: {stats['total_episodes']} episodes, ε={stats['exploration_rate']:.3f}")
@@ -519,14 +524,14 @@ def main():
 
     # Get current bankroll
     bankroll = get_paper_bankroll()
-    session_decay_rate = get_adaptive_decay_rate(bankroll['win_rate'])
+    portfolio_win_rate = bankroll['win_rate']
     print(f"💰 Bankroll: ${bankroll['balance']:.2f} | ROI: {bankroll['roi']:.2f}% | Win Rate: {bankroll['win_rate']:.1f}%")
-    print(f"🎯 Adaptive exploration decay set to {session_decay_rate:.3f}")
+    print(f"🎯 Adaptive exploration decay will be computed per stock")
 
     # Trade each stock
     results = []
     for symbol in symbols:
-        result = trade_single_stock(symbol, force_exploit=args.exploit, decay_rate=session_decay_rate)
+        result = trade_single_stock(symbol, portfolio_win_rate, force_exploit=args.exploit)
         results.append(result)
 
     # Summary
