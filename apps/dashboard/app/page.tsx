@@ -95,60 +95,46 @@ export default async function OverviewPage() {
 
   return (
     <div>
-      <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-[2fr,1fr]">
-        <div className="rounded-3xl bg-brand-gradient p-10 text-white shadow-card">
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-white/70">
-                Portfolio value
-              </p>
-              <h2 className="mt-3 text-5xl font-semibold text-brand-glow">{formatCurrency(metrics.net_worth)}</h2>
-              <p className="mt-4 text-sm text-white/80">
-                Starting cash {formatCurrency(metrics.starting_cash)}
-                {' · '}
-                Total P&amp;L {formatCurrency(metrics.total_pnl)}
-              </p>
-            </div>
-            <div className="rounded-2xl bg-white/15 px-6 py-5 text-right shadow-card">
-              <p className="text-xs uppercase tracking-wide text-white/70">
-                Realized P&amp;L
-              </p>
-              <p className={`mt-1 text-3xl font-semibold ${parseFloat(metrics.realized_pnl) >= 0 ? 'text-emerald-100' : 'text-rose-100'} text-brand-glow`}>
-                {formatCurrency(metrics.realized_pnl)}
-              </p>
-              <p className="text-xs text-white/75">
-                Total ROI {formatPercent(metrics.total_roi, 2)}
-              </p>
-            </div>
+      {/* Hero Section */}
+      <div className="mb-8 rounded-3xl bg-brand-gradient p-10 text-white shadow-card">
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-white/70">
+              Portfolio Value
+            </p>
+            <h2 className="mt-3 text-5xl font-semibold text-brand-glow">{formatCurrency(metrics.net_worth)}</h2>
+            <p className="mt-4 text-sm text-white/80">
+              Started with {formatCurrency(metrics.starting_cash)}
+            </p>
           </div>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <span className="brand-pill bg-white/15 text-white">Cash {formatCurrency(metrics.cash_balance)}</span>
-            <span className="brand-pill bg-white/15 text-white">Unrealized {formatCurrency(metrics.total_unrealized_pnl)}</span>
-            <span className="brand-pill bg-white/15 text-white">Trades {metrics.total_trades.toLocaleString()}</span>
+          <div className="rounded-2xl bg-white/15 px-6 py-5 text-right shadow-card">
+            <p className="text-xs uppercase tracking-wide text-white/70">
+              Total P&amp;L
+            </p>
+            <p className={`mt-1 text-3xl font-semibold ${parseFloat(metrics.total_pnl) >= 0 ? 'text-emerald-100' : 'text-rose-100'} text-brand-glow`}>
+              {formatCurrency(metrics.total_pnl)}
+            </p>
+            <p className={`text-sm ${parseFloat(metrics.total_roi) >= 0 ? 'text-emerald-200' : 'text-rose-200'}`}>
+              {formatPercent(metrics.total_roi, 2)} ROI
+            </p>
           </div>
-        </div>
-        <div className="grid grid-cols-1 gap-4">
-          <SurfaceCard className="border border-brand-muted">
-            <MetricStat
-              label="Cash Balance"
-              value={formatCurrency(metrics.cash_balance)}
-            />
-          </SurfaceCard>
-          <SurfaceCard className="border border-brand-muted">
-            <MetricStat
-              label="Unrealized P&L"
-              value={formatCurrency(metrics.total_unrealized_pnl)}
-              tone={parseFloat(metrics.total_unrealized_pnl) >= 0 ? 'positive' : 'negative'}
-            />
-          </SurfaceCard>
         </div>
       </div>
 
-      <div className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/* Key Metrics */}
+      <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
         <SurfaceCard>
           <MetricStat
-            label="Open Positions Value"
+            label="Cash Available"
+            value={formatCurrency(metrics.cash_balance)}
+          />
+        </SurfaceCard>
+        <SurfaceCard>
+          <MetricStat
+            label="Open Positions"
             value={formatCurrency(metrics.open_positions_market_value)}
+            description={metrics.total_unrealized_pnl !== 0 ? `${formatCurrency(metrics.total_unrealized_pnl)} unrealized` : undefined}
+            tone={parseFloat(metrics.total_unrealized_pnl) >= 0 ? 'positive' : 'negative'}
           />
         </SurfaceCard>
         <SurfaceCard>
@@ -160,49 +146,11 @@ export default async function OverviewPage() {
         </SurfaceCard>
         <SurfaceCard>
           <MetricStat
-            label="Total Trades"
-            value={metrics.total_trades.toLocaleString()}
+            label="Realized P&L"
+            value={formatCurrency(metrics.realized_pnl)}
+            tone={parseFloat(metrics.realized_pnl) >= 0 ? 'positive' : 'negative'}
           />
         </SurfaceCard>
-      </div>
-
-      {/* Performance Snapshot */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-gray-500 text-sm">
-            Realized P&amp;L
-          </h3>
-          <p className={`text-2xl font-bold ${parseFloat(metrics.realized_pnl) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {formatCurrency(metrics.realized_pnl)}
-          </p>
-        </div>
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-gray-500 text-sm">
-            Total P&amp;L
-          </h3>
-          <p className={`text-2xl font-bold ${parseFloat(metrics.total_pnl) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {formatCurrency(metrics.total_pnl)}
-          </p>
-        </div>
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-gray-500 text-sm">
-            Total ROI
-          </h3>
-          <p className={`text-2xl font-bold ${parseFloat(metrics.total_roi) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {formatPercent(metrics.total_roi, 2)}
-          </p>
-        </div>
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-gray-500 text-sm">
-            Win Rate
-          </h3>
-          <p className="text-2xl font-bold">
-            {formatPercent(metrics.win_rate || 0)}
-            <span className="text-sm text-gray-400 ml-2">
-              ({metrics.total_trades.toLocaleString()} trades)
-            </span>
-          </p>
-        </div>
       </div>
 
       {/* Active Positions */}
