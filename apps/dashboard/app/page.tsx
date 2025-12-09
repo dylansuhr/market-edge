@@ -10,7 +10,6 @@ import { formatCurrency, formatPercent } from '@/lib/format'
 import { SurfaceCard } from '@/components/ui/SurfaceCard'
 import { MetricStat } from '@/components/ui/MetricStat'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import CapitalPipelineStatus from '@/components/CapitalPipelineStatus'
 
 export const dynamic = 'force-dynamic' // Disable caching for real-time data
 
@@ -193,9 +192,6 @@ export default async function OverviewPage() {
           <p className="text-slate-500">No active positions</p>
         )}
       </SurfaceCard>
-
-      {/* Pipeline Status */}
-      <CapitalPipelineStatus />
 
       {/* Recent Trades */}
       <SurfaceCard>

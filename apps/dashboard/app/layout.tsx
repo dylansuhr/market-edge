@@ -39,9 +39,7 @@ export default function RootLayout({
               <a href="/trades" className="rounded-full px-4 py-2 transition hover:bg-brand-muted hover:text-brand">Trades</a>
               <a href="/performance" className="rounded-full px-4 py-2 transition hover:bg-brand-muted hover:text-brand">Performance</a>
               <a href="/agent" className="rounded-full px-4 py-2 transition hover:bg-brand-muted hover:text-brand">Agent Stats</a>
-              <a href="/capital" className="rounded-full px-4 py-2 transition hover:bg-brand-muted hover:text-brand">Capital Discipline</a>
               <a href="/ai-log" className="rounded-full px-4 py-2 transition hover:bg-brand-muted hover:text-brand">AI Log</a>
-              <a href="/automation" className="rounded-full px-4 py-2 transition hover:bg-brand-muted hover:text-brand">Automation</a>
             </div>
             <MarketClock />
           </div>
