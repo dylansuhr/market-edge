@@ -50,7 +50,6 @@ out/
 # Database
 *.sql.backup
 *.dump
-infra/
 
 # Logs
 logs/

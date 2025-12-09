@@ -1,14 +1,7 @@
 """
 Database operations module.
 
-All database writes go through this module to ensure:
-1. Idempotent operations (safe to re-run scripts)
-2. Consistent error handling
-3. Connection pooling
-4. Transaction management
-
-Database: PostgreSQL (Neon or local)
-ORM: psycopg2 (lightweight, no ORM overhead)
+All writes go through here. Uses ON CONFLICT everywhere so scripts are safe to re-run.
 """
 
 import os
@@ -20,19 +13,7 @@ from contextlib import contextmanager
 
 
 def get_db_connection():
-    """
-    Get PostgreSQL database connection.
-
-    Reads from DATABASE_URL environment variable.
-    Format: postgresql://user:password@host:port/database
-
-    Returns:
-        psycopg2 connection object
-
-    Raises:
-        ValueError: If DATABASE_URL not set
-        psycopg2.Error: If connection fails
-    """
+    """Get PostgreSQL connection from DATABASE_URL env var."""
     database_url = os.getenv('DATABASE_URL')
     if not database_url:
         raise ValueError("DATABASE_URL environment variable not set")
@@ -46,19 +27,7 @@ def get_db_connection():
 
 @contextmanager
 def get_cursor(commit=True):
-    """
-    Context manager for database cursor with automatic commit/rollback.
-
-    Usage:
-        with get_cursor() as cur:
-            cur.execute("INSERT INTO ...")
-
-    Args:
-        commit: If True, commits transaction on success. If False, rollback.
-
-    Yields:
-        Database cursor (returns rows as dictionaries)
-    """
+    """Context manager for DB cursor. Auto-commits on success, rollback on error."""
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
@@ -76,25 +45,10 @@ def get_cursor(commit=True):
         conn.close()
 
 
-# ============================================================================
-# STOCK OPERATIONS
-# ============================================================================
+# --- STOCK OPERATIONS ---
 
 def upsert_stock(symbol: str, name: str, exchange: str = 'NASDAQ', sector: str = None) -> int:
-    """
-    Insert or update stock metadata.
-
-    Uses ON CONFLICT to prevent duplicates (idempotent operation).
-
-    Args:
-        symbol: Stock ticker (e.g., 'AAPL')
-        name: Company name (e.g., 'Apple Inc.')
-        exchange: Stock exchange (e.g., 'NASDAQ', 'NYSE')
-        sector: Industry sector (e.g., 'Technology', 'Finance')
-
-    Returns:
-        stock_id (primary key)
-    """
+    """Insert or update stock. Returns stock_id."""
     with get_cursor() as cur:
         cur.execute("""
             INSERT INTO stocks (symbol, name, exchange, sector)
@@ -112,24 +66,14 @@ def upsert_stock(symbol: str, name: str, exchange: str = 'NASDAQ', sector: str =
 
 
 def get_stock_id(symbol: str) -> Optional[int]:
-    """
-    Get stock_id for a given symbol.
-
-    Args:
-        symbol: Stock ticker (e.g., 'AAPL')
-
-    Returns:
-        stock_id or None if not found
-    """
+    """Get stock_id for symbol, or None if not found."""
     with get_cursor(commit=False) as cur:
         cur.execute("SELECT stock_id FROM stocks WHERE symbol = %s", (symbol,))
         result = cur.fetchone()
         return result['stock_id'] if result else None
 
 
-# ============================================================================
-# PRICE DATA OPERATIONS
-# ============================================================================
+# --- PRICE DATA OPERATIONS ---
 
 def upsert_price_snapshot(
     stock_id: int,
@@ -140,23 +84,7 @@ def upsert_price_snapshot(
     close: float,
     volume: int
 ) -> int:
-    """
-    Insert or update price snapshot (OHLCV data).
-
-    Uses ON CONFLICT to prevent duplicate timestamps (idempotent).
-
-    Args:
-        stock_id: Foreign key to stocks table
-        timestamp: Bar timestamp (e.g., '2025-10-15 09:35:00')
-        open_price: Opening price
-        high: High price
-        low: Low price
-        close: Closing price
-        volume: Trading volume
-
-    Returns:
-        snapshot_id (primary key)
-    """
+    """Insert OHLCV bar. Returns snapshot_id."""
     with get_cursor() as cur:
         cur.execute("""
             INSERT INTO price_snapshots (stock_id, timestamp, open, high, low, close, volume)
@@ -175,19 +103,7 @@ def upsert_price_snapshot(
 
 
 def bulk_insert_price_snapshots(snapshots: List[Dict]) -> int:
-    """
-    Bulk insert price snapshots for efficiency.
-
-    Args:
-        snapshots: List of dictionaries with keys:
-            - stock_id
-            - timestamp
-            - open, high, low, close
-            - volume
-
-    Returns:
-        Number of rows inserted
-    """
+    """Batch insert OHLCV bars. Returns row count."""
     if not snapshots:
         return 0
 
@@ -211,16 +127,7 @@ def bulk_insert_price_snapshots(snapshots: List[Dict]) -> int:
 
 
 def get_recent_prices(stock_id: int, limit: int = 100) -> List[Dict]:
-    """
-    Get recent price data for a stock (for calculating indicators).
-
-    Args:
-        stock_id: Stock identifier
-        limit: Number of most recent bars to return
-
-    Returns:
-        List of price dictionaries (newest first)
-    """
+    """Get most recent price bars (newest first)."""
     with get_cursor(commit=False) as cur:
         cur.execute("""
             SELECT timestamp, open, high, low, close, volume
@@ -233,9 +140,7 @@ def get_recent_prices(stock_id: int, limit: int = 100) -> List[Dict]:
         return cur.fetchall()
 
 
-# ============================================================================
-# TECHNICAL INDICATORS OPERATIONS
-# ============================================================================
+# --- TECHNICAL INDICATORS OPERATIONS ---
 
 def upsert_technical_indicator(
     stock_id: int,
@@ -243,18 +148,7 @@ def upsert_technical_indicator(
     indicator_name: str,
     value: float
 ) -> int:
-    """
-    Insert or update technical indicator value.
-
-    Args:
-        stock_id: Stock identifier
-        timestamp: Indicator timestamp
-        indicator_name: 'RSI', 'SMA_50', 'EMA_20', 'VWAP', etc.
-        value: Indicator value
-
-    Returns:
-        indicator_id (primary key)
-    """
+    """Insert indicator value (RSI, SMA_50, VWAP, etc). Returns indicator_id."""
     with get_cursor() as cur:
         cur.execute("""
             INSERT INTO technical_indicators (stock_id, timestamp, indicator_name, value)
@@ -269,12 +163,7 @@ def upsert_technical_indicator(
 
 
 def get_latest_indicators(stock_id: int) -> Dict[str, float]:
-    """
-    Get latest technical indicator values for a stock.
-
-    Returns:
-        Dictionary: {'RSI': 28.5, 'SMA_50': 177.85, 'VWAP': 178.12, ...}
-    """
+    """Get latest indicator values as dict: {'RSI': 28.5, 'SMA_50': 177.85, ...}"""
     with get_cursor(commit=False) as cur:
         cur.execute("""
             SELECT DISTINCT ON (indicator_name)
@@ -289,13 +178,11 @@ def get_latest_indicators(stock_id: int) -> Dict[str, float]:
         return {row['indicator_name']: row['value'] for row in rows}
 
 
-# ============================================================================
-# PAPER TRADING OPERATIONS
-# ============================================================================
+# --- PAPER TRADING OPERATIONS ---
 
 def insert_paper_trade(
     stock_id: int,
-    action: str,  # 'BUY' or 'SELL'
+    action: str,
     quantity: int,
     price: float,
     strategy: str = 'RL_AGENT',
@@ -303,35 +190,14 @@ def insert_paper_trade(
     executed_at: Optional[datetime] = None
 ) -> Dict:
     """
-    Insert a paper trade (mock trade for validation).
-
-    For BUY: Inserts with status='OPEN'
-    For SELL: Matches against open BUY lots (FIFO), calculates P&L, marks both as 'CLOSED'
-
-    Balance is automatically calculated from all trades via the paper_bankroll view.
-    No manual balance updates needed.
-
-    Args:
-        stock_id: Stock identifier
-        action: 'BUY' or 'SELL'
-        quantity: Number of shares
-        price: Execution price
-        strategy: Trading strategy name ('RL_AGENT', 'BASELINE', etc.)
-        reasoning: AI decision explanation
-
-    Returns:
-        Dictionary with:
-        - trade_id: Primary key of inserted trade
-        - realized_pnl: Profit/loss from closing positions (0 for BUY, calculated for SELL)
-        - closed_trades: List of trade_ids that were closed (empty for BUY)
+    Insert paper trade. BUY opens position, SELL closes via FIFO matching.
+    Returns {trade_id, realized_pnl, closed_trades}.
     """
     from datetime import datetime
-
     executed_at = executed_at or datetime.now()
 
     with get_cursor() as cur:
         if action == 'BUY':
-            # BUY: Insert with status='OPEN'
             cur.execute("""
                 INSERT INTO paper_trades (
                     stock_id, action, quantity, price, strategy, reasoning,
@@ -349,12 +215,11 @@ def insert_paper_trade(
             }
 
         elif action == 'SELL':
-            # SELL: Match against open BUY lots (FIFO)
+            # Match against open BUY lots (FIFO)
             remaining_qty = quantity
             realized_pnl = 0.0
             closed_trade_ids = []
 
-            # Get open BUY positions (FIFO order)
             cur.execute("""
                 SELECT trade_id, quantity, price
                 FROM paper_trades
@@ -364,29 +229,23 @@ def insert_paper_trade(
 
             open_buys = cur.fetchall()
 
-            # Validate sufficient open quantity before proceeding
+            # Prevent short selling
             total_open_qty = sum(buy['quantity'] for buy in open_buys)
             if quantity > total_open_qty:
-                raise ValueError(
-                    f"Cannot SELL {quantity} shares: only {total_open_qty} shares open. "
-                    f"Attempted short selling prevented."
-                )
+                raise ValueError(f"Cannot SELL {quantity}: only {total_open_qty} open")
 
             for buy in open_buys:
                 if remaining_qty <= 0:
                     break
 
                 buy_qty = int(buy['quantity'])
-                buy_price = float(buy['price'])  # Convert Decimal to float
+                buy_price = float(buy['price'])
                 qty_to_close = min(remaining_qty, buy_qty)
-
-                # Calculate P&L for this lot
                 pnl = (float(price) - buy_price) * qty_to_close
                 realized_pnl += pnl
 
                 fully_closed = qty_to_close == buy_qty
                 if fully_closed:
-                    # Fully close this BUY lot
                     cur.execute("""
                         UPDATE paper_trades
                         SET status = 'CLOSED',
@@ -395,7 +254,6 @@ def insert_paper_trade(
                         WHERE trade_id = %s
                     """, (price, executed_at, buy['trade_id']))
                 else:
-                    # Partial close: reduce remaining quantity, keep position open
                     cur.execute("""
                         UPDATE paper_trades
                         SET quantity = quantity - %s
@@ -406,7 +264,6 @@ def insert_paper_trade(
                     closed_trade_ids.append(buy['trade_id'])
                 remaining_qty -= qty_to_close
 
-            # Insert the SELL trade with status='CLOSED' (P&L stored ONLY here)
             cur.execute("""
                 INSERT INTO paper_trades (
                     stock_id, action, quantity, price, strategy, reasoning,
@@ -425,23 +282,7 @@ def insert_paper_trade(
 
 
 def get_active_positions() -> List[Dict]:
-    """
-    Get all open positions (bought but not yet sold).
-
-    Returns:
-        List of dictionaries:
-        [
-            {
-                'stock_id': 1,
-                'symbol': 'AAPL',
-                'quantity': 10,
-                'avg_entry_price': 178.32,
-                'current_price': 179.50,
-                'unrealized_pnl': 11.80
-            },
-            ...
-        ]
-    """
+    """Get all open positions from active_positions view."""
     with get_cursor(commit=False) as cur:
         cur.execute("""
             SELECT
@@ -457,24 +298,10 @@ def get_active_positions() -> List[Dict]:
 
 
 def close_position(stock_id: int, exit_price: float, exit_time: datetime = None) -> float:
-    """
-    Close all open BUY positions for end-of-day settlement.
-
-    Only closes BUY trades (SELL trades are already closed via insert_paper_trade).
-    Calculates and returns total realized P&L.
-
-    Args:
-        stock_id: Stock identifier
-        exit_price: Selling price (market close)
-        exit_time: Exit timestamp (defaults to now)
-
-    Returns:
-        Total realized P&L from closed positions
-    """
+    """Close all open positions for end-of-day settlement. Returns total P&L."""
     if exit_time is None:
         exit_time = datetime.now()
 
-    # Determine total open quantity before attempting to close
     with get_cursor(commit=False) as cur:
         cur.execute("""
             SELECT COALESCE(SUM(quantity), 0) AS total_qty
@@ -487,7 +314,6 @@ def close_position(stock_id: int, exit_price: float, exit_time: datetime = None)
     if not total_qty or total_qty <= 0:
         return 0.0
 
-    # Use insert_paper_trade to perform a synthetic SELL that closes the position
     trade_result = insert_paper_trade(
         stock_id=stock_id,
         action='SELL',
@@ -502,22 +328,7 @@ def close_position(stock_id: int, exit_price: float, exit_time: datetime = None)
 
 
 def get_paper_bankroll() -> Dict:
-    """
-    Get current paper trading bankroll stats.
-
-    Returns:
-        Dictionary:
-        {
-            'balance': 10500.50,
-            'total_trades': 47,
-            'win_rate': 54.0,  # Percentage (54%)
-            'total_pnl': 500.50,
-            'roi': 5.0  # Percentage (5%)
-        }
-
-    Note: After migration 0007, ROI and win_rate are returned as percentages
-          from the VIEW (already multiplied by 100).
-    """
+    """Get bankroll stats: balance, total_trades, win_rate, total_pnl, roi."""
     with get_cursor(commit=False) as cur:
         cur.execute("""
             SELECT
@@ -533,7 +344,6 @@ def get_paper_bankroll() -> Dict:
 
         result = cur.fetchone()
         if not result:
-            # Return default starting bankroll
             return {
                 'balance': 100000.0,
                 'total_trades': 0,
@@ -546,15 +356,13 @@ def get_paper_bankroll() -> Dict:
             'balance': float(result['balance']),
             'total_trades': result['total_trades'],
             'total_pnl': float(result['total_pnl']),
-            'roi': float(result['roi']),  # Already a percentage from VIEW
-            'win_rate': float(result['win_rate'])  # Already a percentage from VIEW
+            'roi': float(result['roi']),
+            'win_rate': float(result['win_rate'])
         }
 
 
 def get_stock_win_rate(stock_id: int) -> Optional[float]:
-    """
-    Calculate win rate percentage for a specific stock.
-    """
+    """Win rate % for a stock, or None if no trades."""
     with get_cursor(commit=False) as cur:
         cur.execute("""
             SELECT
@@ -570,33 +378,15 @@ def get_stock_win_rate(stock_id: int) -> Optional[float]:
         return (row['wins'] / row['total']) * 100.0
 
 
-# NOTE: update_paper_bankroll() and adjust_paper_bankroll_balance() removed
-# Balance is now calculated dynamically from paper_trades via the paper_bankroll view
-# No manual updates needed - single source of truth architecture
-
-
-# ============================================================================
-# RL MODEL OPERATIONS
-# ============================================================================
+# --- RL MODEL OPERATIONS ---
 
 def save_q_table(stock_id: int, agent_data: Dict):
-    """
-    Save Q-Learning agent state to database (for persistence).
-
-    Args:
-        stock_id: Stock identifier
-        agent_data: Full agent state from QLearningAgent.save() method
-                   (includes q_table, hyperparameters, stats)
-    """
+    """Persist Q-table and hyperparameters to database."""
     import json
 
-    # Extract Q-table and hyperparameters from agent data
     q_table_data = agent_data.get('q_table', {})
-
-    # Calculate avg_reward for dashboard display
     total_episodes = agent_data.get('total_episodes', 0)
     total_rewards = agent_data.get('total_rewards', 0.0)
-    avg_reward = total_rewards / max(total_episodes, 1)
 
     hyperparameters = {
         'learning_rate': agent_data.get('learning_rate', 0.1),
@@ -606,7 +396,7 @@ def save_q_table(stock_id: int, agent_data: Dict):
         'min_exploration': agent_data.get('min_exploration', 0.01),
         'total_episodes': total_episodes,
         'total_rewards': total_rewards,
-        'avg_reward': round(avg_reward, 4)  # Add avg_reward for dashboard
+        'avg_reward': round(total_rewards / max(total_episodes, 1), 4)
     }
 
     with get_cursor() as cur:
@@ -621,12 +411,7 @@ def save_q_table(stock_id: int, agent_data: Dict):
 
 
 def load_q_table(stock_id: int) -> Optional[Dict]:
-    """
-    Load Q-Learning agent state from database.
-
-    Returns:
-        Full agent state dictionary (ready for QLearningAgent.load()) or None if not found
-    """
+    """Load Q-table from database, or None if not found."""
     import json
 
     with get_cursor(commit=False) as cur:
@@ -642,19 +427,13 @@ def load_q_table(stock_id: int) -> Optional[Dict]:
         if not result:
             return None
 
-        # Reconstruct full agent state from database fields
         q_table_raw = json.loads(result['q_table']) if isinstance(result['q_table'], str) else result['q_table']
 
-        # Check if q_table contains the old format (full agent state) or new format (just the table)
+        # Handle legacy format where full agent state was in q_table column
         if isinstance(q_table_raw, dict) and 'q_table' in q_table_raw:
-            # Old format: full agent state was stored in q_table column
-            # Just return it as-is
             return q_table_raw
 
-        # New format: q_table and hyperparameters stored separately
         q_table_data = q_table_raw
-
-        # Handle hyperparameters (may be NULL in old records)
         hyperparams_raw = result['hyperparameters']
         if hyperparams_raw is None:
             hyperparams = {}
@@ -675,16 +454,11 @@ def load_q_table(stock_id: int) -> Optional[Dict]:
         }
 
 
-# ============================================================================
-# AI DECISION LOGGING OPERATIONS
-# ============================================================================
+# --- AI DECISION LOGGING ---
 
 def _convert_decimals(obj):
-    """
-    Recursively convert Decimal objects to float for JSON serialization.
-    """
+    """Convert Decimal to float for JSON serialization."""
     from decimal import Decimal
-
     if isinstance(obj, Decimal):
         return float(obj)
     elif isinstance(obj, dict):
@@ -703,26 +477,8 @@ def insert_decision_log(
     reasoning: str,
     q_values: Optional[Dict] = None
 ) -> int:
-    """
-    Insert AI trading decision into log (for full transparency).
-
-    Logs ALL decisions: BUY, SELL, HOLD (executed or not).
-
-    Args:
-        stock_id: Stock identifier
-        state: Trading state as dictionary
-        action: 'BUY', 'SELL', or 'HOLD'
-        was_executed: True if trade was actually executed
-        was_random: True if action was random (exploration)
-        reasoning: Decision explanation
-        q_values: Q-values for all actions (optional)
-
-    Returns:
-        decision_id (primary key)
-    """
+    """Log trading decision for transparency. Returns decision_id."""
     import json
-
-    # Convert any Decimal objects to float for JSON serialization
     state = _convert_decimals(state)
     q_values = _convert_decimals(q_values) if q_values else None
 
@@ -748,16 +504,7 @@ def insert_decision_log(
 
 
 def get_recent_decisions(stock_id: Optional[int] = None, limit: int = 50) -> List[Dict]:
-    """
-    Get recent AI trading decisions.
-
-    Args:
-        stock_id: Filter by stock (None = all stocks)
-        limit: Number of decisions to return
-
-    Returns:
-        List of decision dictionaries
-    """
+    """Get recent decisions. Filter by stock_id if provided."""
     with get_cursor(commit=False) as cur:
         if stock_id:
             cur.execute("""
@@ -798,25 +545,17 @@ def get_recent_decisions(stock_id: Optional[int] = None, limit: int = 50) -> Lis
         return cur.fetchall()
 
 
-# Example usage
 if __name__ == '__main__':
-    """
-    Test database operations.
-
-    Run: python -m packages.shared.shared.db
-    """
-    # Test connection
+    # Quick DB test
     print("Testing database connection...")
     conn = get_db_connection()
-    print("✓ Connected to database")
+    print("Connected")
     conn.close()
 
-    # Test upsert_stock
     print("\nTesting upsert_stock...")
     stock_id = upsert_stock('AAPL', 'Apple Inc.', 'NASDAQ', 'Technology')
-    print(f"✓ Upserted AAPL with stock_id: {stock_id}")
+    print(f"AAPL stock_id: {stock_id}")
 
-    # Test get_paper_bankroll
     print("\nTesting get_paper_bankroll...")
     bankroll = get_paper_bankroll()
-    print(f"✓ Current bankroll: ${bankroll['balance']:.2f} (ROI: {bankroll['roi']:.2f}%)")
+    print(f"Balance: ${bankroll['balance']:.2f}")

@@ -1,19 +1,8 @@
 """
 RL Trading Agent
 
-Autonomous day trading agent powered by Q-Learning.
-
-This script:
-1. Loads current market data from database
-2. Uses RL agent to decide: BUY, SELL, or HOLD for each stock
-3. Executes paper trades (mock trades for validation)
-4. Updates Q-values based on outcomes
-5. Learns and improves over time
-
-Runs every 5 minutes during market hours (synchronized with ETL).
-
-Usage:
-    python ops/scripts/rl_trading_agent.py --symbols AAPL,MSFT
+Runs every 5 min during market hours. Loads market data, makes BUY/SELL/HOLD
+decisions via Q-learning, executes paper trades, and updates Q-values.
 """
 
 import sys
@@ -23,10 +12,7 @@ from datetime import datetime
 from typing import Dict, List, Tuple
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
-
-# Add packages to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'packages'))
 
 from models.models.ql_agent import QLearningAgent
@@ -45,12 +31,9 @@ from shared.shared.db import (
 )
 
 
-# Default stocks (match ETL default)
 DEFAULT_SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'NVDA', 'SPY', 'QQQ', 'META', 'AMZN', 'JPM']
-
-# Trading parameters
-MAX_POSITION_SIZE = 25  # Max shares per stock
-STARTING_CASH = 100000.0  # Virtual starting capital
+MAX_POSITION_SIZE = 25
+STARTING_CASH = 100000.0
 QUICK_EXIT_THRESHOLD_MINUTES = int(os.getenv('QUICK_EXIT_THRESHOLD', '10'))
 LINGERING_THRESHOLD_MINUTES = int(os.getenv('LINGERING_THRESHOLD', '30'))
 QUICK_EXIT_BONUS = float(os.getenv('QUICK_EXIT_BONUS', '0.05'))
@@ -58,11 +41,7 @@ LINGERING_PENALTY_PER_BLOCK = float(os.getenv('LINGERING_PENALTY', '0.02'))
 
 
 def get_adaptive_decay_rate(win_rate_percent: float) -> float:
-    """
-    Adjust exploration decay based on recent performance.
-
-    Higher win rate => decay faster to exploit. Lower => decay slower.
-    """
+    """Higher win rate = faster decay (more exploitation)."""
     if win_rate_percent >= 50:
         return 0.98
     elif win_rate_percent <= 30:
@@ -72,69 +51,39 @@ def get_adaptive_decay_rate(win_rate_percent: float) -> float:
 
 
 def load_or_create_agent(stock_id: int) -> QLearningAgent:
-    """
-    Load existing agent or create new one.
-
-    Each stock has its own agent (separate Q-tables).
-
-    Args:
-        stock_id: Stock identifier
-
-    Returns:
-        QLearningAgent (loaded or new)
-    """
+    """Load agent from DB or create new one. Each stock has its own Q-table."""
     q_table = load_q_table(stock_id)
 
     if q_table:
-        # Load existing agent
-        agent = QLearningAgent.load(q_table)
-        return agent
+        return QLearningAgent.load(q_table)
     else:
-        # Create new agent with hyperparameters from environment
         learning_rate = float(os.getenv('LEARNING_RATE', '0.1'))
         discount_factor = float(os.getenv('DISCOUNT_FACTOR', '0.95'))
         exploration_rate = float(os.getenv('EXPLORATION_RATE', '1.0'))
         exploration_decay = float(os.getenv('EXPLORATION_DECAY', '0.99'))
         min_exploration = float(os.getenv('MIN_EXPLORATION', '0.01'))
 
-        agent = QLearningAgent(
+        return QLearningAgent(
             learning_rate=learning_rate,
             discount_factor=discount_factor,
             exploration_rate=exploration_rate,
             exploration_decay=exploration_decay,
             min_exploration=min_exploration
         )
-        return agent
 
 
 def get_current_state(symbol: str, stock_id: int) -> Tuple[TradingState, Dict]:
-    """
-    Get current trading state for a stock.
-
-    Args:
-        symbol: Stock ticker
-        stock_id: Stock identifier
-
-    Returns:
-        Tuple of (TradingState, market_data_dict)
-
-    Raises:
-        Exception: If insufficient data
-    """
-    # Get recent prices
+    """Build trading state from current market data and positions."""
     prices = get_recent_prices(stock_id, limit=100)
     if len(prices) < 50:
         raise Exception(f"Insufficient price data ({len(prices)} bars)")
 
-    # Get latest indicators
     indicators = get_latest_indicators(stock_id)
     if 'RSI' not in indicators or 'SMA_50' not in indicators or 'VWAP' not in indicators:
         raise Exception(f"Missing technical indicators")
 
-    # Get current position
     positions = get_active_positions()
     bankroll = get_paper_bankroll()
-
     cash_balance = float(bankroll['balance'])
     total_exposure = 0.0
     position_qty = 0
@@ -151,8 +100,7 @@ def get_current_state(symbol: str, stock_id: int) -> Tuple[TradingState, Dict]:
             position_avg_entry = avg_price
             position_last_trade_time = pos.get('last_trade_time')
 
-    # Current and previous prices
-    current_price = prices[0]['close']  # Most recent
+    current_price = prices[0]['close']
     prev_price = prices[1]['close'] if len(prices) > 1 else current_price
     unrealized_pnl = (current_price - position_avg_entry) * position_qty if position_qty > 0 else 0.0
     position_age_minutes = 0.0
@@ -160,7 +108,6 @@ def get_current_state(symbol: str, stock_id: int) -> Tuple[TradingState, Dict]:
         now = datetime.now(position_last_trade_time.tzinfo) if getattr(position_last_trade_time, 'tzinfo', None) else datetime.now()
         position_age_minutes = max((now - position_last_trade_time).total_seconds() / 60.0, 0.0)
 
-    # Create trading state
     state = TradingState.from_market_data(
         rsi=indicators['RSI'],
         price=current_price,
@@ -202,27 +149,8 @@ def calculate_reward(
     market_data: Dict
 ) -> float:
     """
-    Calculate reward for Q-learning based on action and outcome.
-
-    Reward structure:
-    - BUY: Small positive reward (encourage opening positions) with mild capital penalties
-    - SELL: Realized P&L plus time-aware bonuses/penalties
-    - HOLD: Opportunity cost with reward/penalty tied to unrealized P&L changes
-    - Not executed: No reward (agent learns nothing from failed orders)
-
-    Args:
-        action: 'BUY', 'SELL', or 'HOLD'
-        executed: Whether action was actually executed
-        realized_pnl: Profit/loss from trade (for SELL)
-        state: Current trading state (for capital management penalties)
-
-    Returns:
-        Reward value for Q-learning update
-
-    Intermediate shaping:
-    - Quick profitable exits (< ~10 minutes) get a +0.05 bonus
-    - Lingering losing positions accrue -0.02 per ~10 minutes held
-    - HOLD rewards react to unrealized P&L changes to reduce bias
+    Compute reward for Q-learning. BUY gets small positive, SELL gets P&L,
+    HOLD has slight penalty. Bonuses for quick exits, penalties for lingering losers.
     """
     position_age_minutes = market_data.get('position_age_minutes', 0.0)
     position_qty = market_data.get('position_qty', 0)
@@ -281,21 +209,7 @@ def execute_action(
     was_random: bool,
     state: TradingState
 ) -> Dict:
-    """
-    Execute trading action (paper trade).
-
-    Args:
-        agent: QLearningAgent
-        symbol: Stock ticker
-        stock_id: Stock identifier
-        action: 'BUY', 'SELL', or 'HOLD'
-        market_data: Current market data
-        was_random: Whether action was random (exploration)
-        state: Trading state (for logging)
-
-    Returns:
-        Dictionary with execution results
-    """
+    """Execute BUY/SELL/HOLD, log decision, update Q-values. Returns result dict."""
     price = market_data['price']
     position_qty = market_data['position_qty']
 
@@ -305,10 +219,9 @@ def execute_action(
         'quantity': 0,
         'executed': False,
         'reasoning': '',
-        'realized_pnl': 0.0  # Track P&L for Q-learning rewards
+        'realized_pnl': 0.0
     }
 
-    # Build reasoning
     reasoning_parts = [
         f"RSI={market_data['rsi']:.1f}",
         f"Price vs SMA: {((price - market_data['sma']) / market_data['sma'] * 100):+.2f}%",
@@ -319,21 +232,14 @@ def execute_action(
     if was_random:
         reasoning_parts.append("(EXPLORATION)")
     reasoning = " | ".join(reasoning_parts)
-
-    # Get Q-values for logging
     q_values = agent.get_q_values(state)
 
-    # Execute action
     if action == 'BUY':
         if position_qty < MAX_POSITION_SIZE:
-            # Buy shares (up to max position)
-            qty_to_buy = min(5, MAX_POSITION_SIZE - position_qty)  # Buy 5 shares at a time
-
-            # Check if we have cash
+            qty_to_buy = min(5, MAX_POSITION_SIZE - position_qty)
             bankroll = get_paper_bankroll()
             cost = qty_to_buy * price
             if bankroll['balance'] >= cost:
-                # Execute buy
                 trade_result = insert_paper_trade(
                     stock_id=stock_id,
                     action='BUY',
@@ -358,7 +264,6 @@ def execute_action(
 
     elif action == 'SELL':
         if position_qty > 0:
-            # Sell all shares
             trade_result = insert_paper_trade(
                 stock_id=stock_id,
                 action='SELL',
@@ -382,7 +287,6 @@ def execute_action(
         result['reasoning'] = f"HOLD - {reasoning}"
         print(f"    ⚪ HOLD (no action)")
 
-    # Log ALL decisions to database for transparency
     try:
         state_dict = {
             'rsi': market_data['rsi'],
@@ -408,9 +312,7 @@ def execute_action(
     except Exception as e:
         print(f"    ⚠️ Failed to log decision: {str(e)}")
 
-    # Q-LEARNING UPDATE: Learn from this action
     try:
-        # Calculate reward based on action outcome
         reward = calculate_reward(
             action,
             result['executed'],
@@ -418,11 +320,7 @@ def execute_action(
             state,
             market_data
         )
-
-        # Get next state after action (current market state)
         next_state, next_market_data = get_current_state(symbol, stock_id)
-
-        # Update Q-value (done=False since position may still be open)
         agent.update_q_value(state, action, reward, next_state, done=False)
         agent.finish_episode()
 
@@ -435,26 +333,15 @@ def execute_action(
 
 
 def trade_single_stock(symbol: str, portfolio_win_rate: float, force_exploit: bool = False) -> Dict:
-    """
-    Run trading logic for a single stock.
-
-    Args:
-        symbol: Stock ticker
-        force_exploit: If True, always use best action (no exploration)
-
-    Returns:
-        Dictionary with results
-    """
+    """Run trading logic for one stock. Returns result dict."""
     print(f"\n[{symbol}]")
 
     try:
-        # Get stock ID
         stock_id = get_stock_id(symbol)
         if not stock_id:
             print(f"  ✗ Stock not found in database")
             return {'success': False, 'error': 'Stock not found'}
 
-        # Load or create agent
         agent = load_or_create_agent(stock_id)
         stock_win_rate = get_stock_win_rate(stock_id)
         decay_rate = get_adaptive_decay_rate(stock_win_rate if stock_win_rate is not None else portfolio_win_rate)
@@ -463,19 +350,14 @@ def trade_single_stock(symbol: str, portfolio_win_rate: float, force_exploit: bo
         print(f"  Agent: {stats['total_episodes']} episodes, ε={stats['exploration_rate']:.3f}")
         print(f"  Decay target: {stats['exploration_decay']:.3f}")
 
-        # Get current state
         state, market_data = get_current_state(symbol, stock_id)
         print(f"  State: {state}")
         print(f"  Price: ${market_data['price']:.2f} | RSI: {market_data['rsi']:.1f} | Position: {market_data['position_qty']} shares")
 
-        # Choose action
         action, was_random = agent.choose_action(state, force_exploit=force_exploit)
         print(f"  Decision: {action} (random={was_random})")
 
-        # Execute action
         result = execute_action(agent, symbol, stock_id, action, market_data, was_random, state)
-
-        # Save updated Q-table
         save_q_table(stock_id, agent.save())
 
         return {
@@ -494,7 +376,6 @@ def trade_single_stock(symbol: str, portfolio_win_rate: float, force_exploit: bo
 
 
 def main():
-    """Main trading agent execution."""
     parser = argparse.ArgumentParser(description='RL Trading Agent')
     parser.add_argument(
         '--symbols',
@@ -504,9 +385,8 @@ def main():
     parser.add_argument(
         '--exploit',
         action='store_true',
-        help='Force exploitation (no exploration) - use for deployment'
+        help='Force exploitation (no exploration)'
     )
-
     args = parser.parse_args()
 
     print("=" * 60)
@@ -514,27 +394,22 @@ def main():
     print("=" * 60)
     print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    # Determine which stocks to trade
     if args.symbols:
         symbols = [s.strip() for s in args.symbols.split(',')]
     else:
         symbols = DEFAULT_SYMBOLS
 
     print(f"\n📈 Trading {len(symbols)} stocks...")
-
-    # Get current bankroll
     bankroll = get_paper_bankroll()
     portfolio_win_rate = bankroll['win_rate']
     print(f"💰 Bankroll: ${bankroll['balance']:.2f} | ROI: {bankroll['roi']:.2f}% | Win Rate: {bankroll['win_rate']:.1f}%")
     print(f"🎯 Adaptive exploration decay will be computed per stock")
 
-    # Trade each stock
     results = []
     for symbol in symbols:
         result = trade_single_stock(symbol, portfolio_win_rate, force_exploit=args.exploit)
         results.append(result)
 
-    # Summary
     print("\n" + "=" * 60)
     print("TRADING SESSION COMPLETE")
 
