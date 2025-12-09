@@ -50,6 +50,7 @@ out/
 # Database
 *.sql.backup
 *.dump
+infra/
 
 # Logs
 logs/
@@ -60,3 +61,8 @@ logs/
 .coverage
 htmlcov/
 .vercel
+
+# Dev Documentation
+DOCUMENTATION_INDEX.md
+CLAUDE.md
+.claude

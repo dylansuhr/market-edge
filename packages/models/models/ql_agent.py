@@ -3,7 +3,6 @@ Q-Learning Agent for Day Trading
 
 This is a SIMPLE reinforcement learning agent that learns optimal trading strategies.
 
-Q-Learning Basics (for beginners):
 - Agent learns by trial and error
 - Q-table stores "quality" of (state, action) pairs
 - Q(state, action) = expected future reward for taking action in state
