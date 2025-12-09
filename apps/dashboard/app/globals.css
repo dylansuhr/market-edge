@@ -34,8 +34,4 @@ body {
   .card-surface {
     @apply rounded-3xl bg-brand-surface shadow-card;
   }
-
-  .brand-pill {
-    @apply rounded-full bg-brand-muted px-4 py-2 text-sm font-medium text-brand;
-  }
 }

@@ -16,9 +16,7 @@ from .db import (
 from .indicators import (
     calculate_rsi,
     calculate_sma,
-    calculate_ema,
-    calculate_vwap,
-    detect_ma_crossover
+    calculate_vwap
 )
 
 __all__ = [
@@ -33,7 +31,5 @@ __all__ = [
     # Technical indicator functions
     'calculate_rsi',
     'calculate_sma',
-    'calculate_ema',
-    'calculate_vwap',
-    'detect_ma_crossover'
+    'calculate_vwap'
 ]

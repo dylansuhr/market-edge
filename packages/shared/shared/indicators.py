@@ -1,16 +1,14 @@
 """
 Technical Indicators Module
 
-Implements common day trading indicators:
+Implements the core indicators used by the Q-Learning agent:
 - RSI (Relative Strength Index): Momentum indicator
 - SMA (Simple Moving Average): Trend indicator
-- EMA (Exponential Moving Average): Weighted trend indicator
 - VWAP (Volume Weighted Average Price): Institutional price level
-- Moving Average Crossover: Buy/sell signals
 
 """
 
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict
 import numpy as np
 
 
@@ -96,41 +94,6 @@ def calculate_sma(prices: List[float], period: int) -> float:
     return float(round(np.mean(recent_prices), 2))
 
 
-def calculate_ema(prices: List[float], period: int) -> float:
-    """
-    Calculate EMA (Exponential Moving Average).
-
-    EMA gives more weight to recent prices, making it more responsive than SMA.
-    Used for:
-    - Faster trend detection
-    - MACD calculation (EMA-based)
-
-    Formula:
-        EMA_today = (Price_today * multiplier) + (EMA_yesterday * (1 - multiplier))
-        multiplier = 2 / (period + 1)
-
-    Args:
-        prices: List of closing prices (oldest first)
-        period: Number of periods (e.g., 12, 26 for MACD)
-
-    Returns:
-        EMA value
-
-    Example:
-        prices = [100, 101, 102, 103, 104, 105, 106, ...]  # 12+ prices
-        ema_12 = calculate_ema(prices, period=12)
-        # ema_12 = 104.5 (weighted toward recent prices)
-    """
-    if len(prices) < period:
-        raise ValueError(f"Need at least {period} prices to calculate EMA")
-
-    multiplier = 2.0 / (period + 1)
-    ema = np.mean(prices[:period])  # Start with SMA
-
-    for price in prices[period:]:
-        ema = (price * multiplier) + (ema * (1 - multiplier))
-
-    return float(round(ema, 2))
 
 
 def calculate_vwap(prices: List[Dict]) -> float:
@@ -184,149 +147,8 @@ def calculate_vwap(prices: List[Dict]) -> float:
     return float(round(vwap, 2))
 
 
-def detect_ma_crossover(
-    fast_ma: List[float],
-    slow_ma: List[float]
-) -> Tuple[Optional[str], float]:
-    """
-    Detect moving average crossover signals.
-
-    Classic strategy:
-    - Golden Cross: Fast MA crosses ABOVE slow MA → BUY signal
-    - Death Cross: Fast MA crosses BELOW slow MA → SELL signal
-
-    Common combinations:
-    - 5-period / 20-period (intraday)
-    - 50-period / 200-period (daily)
-
-    Args:
-        fast_ma: Fast moving average values (last 2+ values)
-        slow_ma: Slow moving average values (last 2+ values)
-
-    Returns:
-        Tuple of (signal, strength):
-        - signal: 'BUY', 'SELL', or None
-        - strength: How far apart the MAs are (% difference)
-
-    Example:
-        fast_ma = [177.5, 178.2]  # Was below, now above
-        slow_ma = [178.0, 178.0]
-        signal, strength = detect_ma_crossover(fast_ma, slow_ma)
-        # signal = 'BUY', strength = 0.11% (bullish crossover)
-    """
-    if len(fast_ma) < 2 or len(slow_ma) < 2:
-        raise ValueError("Need at least 2 values for each MA to detect crossover")
-
-    # Current values
-    fast_current = fast_ma[-1]
-    slow_current = slow_ma[-1]
-
-    # Previous values
-    fast_previous = fast_ma[-2]
-    slow_previous = slow_ma[-2]
-
-    # Calculate strength (% difference between MAs)
-    strength = abs((fast_current - slow_current) / slow_current) * 100
-
-    # Detect crossover
-    if fast_previous <= slow_previous and fast_current > slow_current:
-        # Golden Cross (bullish)
-        return ('BUY', round(strength, 2))
-    elif fast_previous >= slow_previous and fast_current < slow_current:
-        # Death Cross (bearish)
-        return ('SELL', round(strength, 2))
-    else:
-        # No crossover
-        return (None, round(strength, 2))
 
 
-def generate_trading_signal(
-    rsi: float,
-    price: float,
-    vwap: float,
-    ma_signal: Optional[str]
-) -> Dict:
-    """
-    Generate combined trading signal from multiple indicators.
-
-    This is a SIMPLE multi-indicator strategy for beginners:
-    1. RSI identifies overbought/oversold
-    2. VWAP identifies institutional support/resistance
-    3. MA crossover confirms trend direction
-
-    Args:
-        rsi: Current RSI value (0-100)
-        price: Current stock price
-        vwap: Current VWAP value
-        ma_signal: Moving average crossover signal ('BUY', 'SELL', or None)
-
-    Returns:
-        Dictionary:
-        {
-            'action': 'BUY' | 'SELL' | 'HOLD',
-            'confidence': 'HIGH' | 'MEDIUM' | 'LOW',
-            'reasoning': 'RSI oversold (28) + price above VWAP + MA golden cross'
-        }
-
-    Example:
-        signal = generate_trading_signal(
-            rsi=28,           # Oversold
-            price=178.50,     # Above VWAP
-            vwap=177.80,
-            ma_signal='BUY'   # Golden cross
-        )
-        # signal = {'action': 'BUY', 'confidence': 'HIGH', 'reasoning': '...'}
-    """
-    reasons = []
-    buy_score = 0
-    sell_score = 0
-
-    # 1. RSI Analysis
-    if rsi < 30:
-        buy_score += 2
-        reasons.append(f"RSI oversold ({rsi:.1f})")
-    elif rsi > 70:
-        sell_score += 2
-        reasons.append(f"RSI overbought ({rsi:.1f})")
-    else:
-        reasons.append(f"RSI neutral ({rsi:.1f})")
-
-    # 2. VWAP Analysis
-    if price > vwap:
-        buy_score += 1
-        reasons.append(f"Price above VWAP (bullish)")
-    elif price < vwap:
-        sell_score += 1
-        reasons.append(f"Price below VWAP (bearish)")
-
-    # 3. MA Crossover Analysis
-    if ma_signal == 'BUY':
-        buy_score += 2
-        reasons.append("MA golden cross")
-    elif ma_signal == 'SELL':
-        sell_score += 2
-        reasons.append("MA death cross")
-
-    # Determine action and confidence
-    if buy_score >= 3:
-        action = 'BUY'
-        confidence = 'HIGH' if buy_score >= 4 else 'MEDIUM'
-    elif sell_score >= 3:
-        action = 'SELL'
-        confidence = 'HIGH' if sell_score >= 4 else 'MEDIUM'
-    else:
-        action = 'HOLD'
-        confidence = 'LOW'
-
-    reasoning = " + ".join(reasons)
-
-    return {
-        'action': action,
-        'confidence': confidence,
-        'reasoning': reasoning,
-        'buy_score': buy_score,
-        'sell_score': sell_score
-    }
 
 
 # Example usage
@@ -357,22 +179,14 @@ if __name__ == '__main__':
         print("   → NEUTRAL")
 
     # Test SMA
-    print("\n2. Moving Averages")
+    print("\n2. SMA Calculation")
     sma_5 = calculate_sma(sample_prices, period=5)
     sma_10 = calculate_sma(sample_prices, period=10)
     print(f"   SMA(5): {sma_5:.2f}")
     print(f"   SMA(10): {sma_10:.2f}")
 
-    # Test MA Crossover
-    print("\n3. MA Crossover Detection")
-    fast_ma = [178.5, 179.0]  # Last 2 values of 5-period MA
-    slow_ma = [178.0, 178.2]  # Last 2 values of 10-period MA
-    signal, strength = detect_ma_crossover(fast_ma, slow_ma)
-    print(f"   Signal: {signal or 'None'}")
-    print(f"   Strength: {strength:.2f}%")
-
     # Test VWAP
-    print("\n4. VWAP Calculation")
+    print("\n3. VWAP Calculation")
     sample_bars = [
         {'close': 178.0, 'volume': 1000000},
         {'close': 178.5, 'volume': 1200000},
@@ -386,15 +200,3 @@ if __name__ == '__main__':
         print("   → Price above VWAP (bullish)")
     else:
         print("   → Price below VWAP (bearish)")
-
-    # Test combined signal
-    print("\n5. Combined Trading Signal")
-    signal = generate_trading_signal(
-        rsi=rsi,
-        price=180.0,
-        vwap=vwap,
-        ma_signal='BUY'
-    )
-    print(f"   Action: {signal['action']}")
-    print(f"   Confidence: {signal['confidence']}")
-    print(f"   Reasoning: {signal['reasoning']}")
