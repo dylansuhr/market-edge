@@ -1,8 +1,6 @@
 """
 Q-Learning Agent for Day Trading
 
-This is a SIMPLE reinforcement learning agent that learns optimal trading strategies.
-
 - Agent learns by trial and error
 - Q-table stores "quality" of (state, action) pairs
 - Q(state, action) = expected future reward for taking action in state
@@ -22,8 +20,6 @@ from .state import TradingState
 
 class QLearningAgent:
     """
-    Q-Learning agent for autonomous day trading.
-
     The agent learns to:
     - Buy when market conditions suggest upward movement
     - Sell when conditions suggest downward movement or take profit
