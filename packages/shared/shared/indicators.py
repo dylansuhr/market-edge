@@ -8,7 +8,6 @@ Implements common day trading indicators:
 - VWAP (Volume Weighted Average Price): Institutional price level
 - Moving Average Crossover: Buy/sell signals
 
-All functions are designed to be simple and well-documented for beginners.
 """
 
 from typing import List, Dict, Tuple, Optional
