@@ -1,10 +1,5 @@
--- Migration: Market Value & Net Worth Views
--- Purpose:
---   1. Provide mark-to-market valuations for active positions
---   2. Expose portfolio net worth (cash + open positions) in a single view
--- Date: 2025-10-18
+-- Market value and net worth views
 
--- Active positions with latest market pricing
 CREATE OR REPLACE VIEW active_positions_with_market_value AS
 SELECT
     ap.stock_id,
@@ -30,7 +25,6 @@ LEFT JOIN LATERAL (
 ) ps ON TRUE
 WHERE ap.quantity > 0;
 
--- Portfolio-level net worth summary
 CREATE OR REPLACE VIEW net_worth_summary AS
 SELECT
     100000.00::numeric AS starting_cash,
