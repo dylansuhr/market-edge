@@ -51,4 +51,5 @@ market-edge/
 
 ---
 
-Dylan Suhr — suhr.d@northeastern.edu
+Dylan Suhr
+suhr.d@northeastern.edu
